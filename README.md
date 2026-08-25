@@ -25,6 +25,5 @@ TabCloser is a lightweight Windows tray app that adds a simple double-click-to-c
 2. Run the executable
 3. Double-click the Chrome tab to close it.
 
-## License
-
-[MIT License](LICENSE).
+##
+MIT
