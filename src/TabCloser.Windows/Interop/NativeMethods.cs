@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace DoubleClickCloseTab.Windows.Interop;
+namespace TabCloser.Windows.Interop;
 
 internal static class NativeMethods
 {

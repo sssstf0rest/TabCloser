@@ -1,4 +1,4 @@
-namespace DoubleClickCloseTab.Windows;
+namespace TabCloser.Windows;
 
 internal static class Program
 {
@@ -9,7 +9,7 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
-        using SingleInstance instance = new("Local\\DoubleClickCloseTab.Windows");
+        using SingleInstance instance = new("Local\\TabCloser.Windows");
         if (!instance.IsPrimary)
         {
             return;
@@ -23,8 +23,8 @@ internal static class Program
         catch (Exception exception)
         {
             MessageBox.Show(
-                $"Double-Click Close Tab could not start.\n\n{exception.Message}",
-                "Double-Click Close Tab",
+                $"TabCloser could not start.\n\n{exception.Message}",
+                "TabCloser",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }

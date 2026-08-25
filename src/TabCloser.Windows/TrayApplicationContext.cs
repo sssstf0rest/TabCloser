@@ -1,6 +1,6 @@
-using DoubleClickCloseTab.Windows.Input;
+using TabCloser.Windows.Input;
 
-namespace DoubleClickCloseTab.Windows;
+namespace TabCloser.Windows;
 
 internal sealed class TrayApplicationContext : ApplicationContext
 {
@@ -49,7 +49,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             ContextMenuStrip = menu,
             Icon = _applicationIcon,
-            Text = "Double-Click Close Tab",
+            Text = "TabCloser",
             Visible = true,
         };
     }
@@ -68,8 +68,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         _service.SetEnabled(_enabledItem.Checked);
         _notifyIcon.Text = _enabledItem.Checked
-            ? "Double-Click Close Tab"
-            : "Double-Click Close Tab (paused)";
+            ? "TabCloser"
+            : "TabCloser (paused)";
     }
 
     private void OnStartupChanged(object? sender, EventArgs eventArgs)
@@ -86,7 +86,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
             MessageBox.Show(
                 $"The startup setting could not be changed.\n\n{exception.Message}",
-                "Double-Click Close Tab",
+                "TabCloser",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }

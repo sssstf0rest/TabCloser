@@ -1,9 +1,9 @@
 using System.Threading.Channels;
-using DoubleClickCloseTab.Core;
-using DoubleClickCloseTab.Windows.Browser;
-using DoubleClickCloseTab.Windows.Interop;
+using TabCloser.Core;
+using TabCloser.Windows.Browser;
+using TabCloser.Windows.Interop;
 
-namespace DoubleClickCloseTab.Windows.Input;
+namespace TabCloser.Windows.Input;
 
 internal sealed class TabCloseService : IDisposable
 {

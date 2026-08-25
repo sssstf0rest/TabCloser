@@ -1,4 +1,4 @@
-namespace DoubleClickCloseTab.Core;
+namespace TabCloser.Core;
 
 public readonly record struct DoubleClickConfiguration(
     uint MaximumDelayMilliseconds,

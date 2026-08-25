@@ -9,12 +9,12 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>../../icons/double-click-close-tab.ico</ApplicationIcon>
-    <AssemblyName>DoubleClickCloseTab</AssemblyName>
-    <RootNamespace>DoubleClickCloseTab.Windows</RootNamespace>
+    <ApplicationIcon>../../icons/tab-closer.ico</ApplicationIcon>
+    <AssemblyName>TabCloser</AssemblyName>
+    <RootNamespace>TabCloser.Windows</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../DoubleClickCloseTab.Core/DoubleClickCloseTab.Core.csproj" />
+    <ProjectReference Include="../TabCloser.Core/TabCloser.Core.csproj" />
   </ItemGroup>
   <Target Name="ExcludeSymbolsFromPublish" AfterTargets="ComputeFilesToPublish" Condition="'$(PublishSingleFile)' == 'true'">
     <ItemGroup>

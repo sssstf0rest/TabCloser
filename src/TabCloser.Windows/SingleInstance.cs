@@ -1,4 +1,4 @@
-namespace DoubleClickCloseTab.Windows;
+namespace TabCloser.Windows;
 
 internal sealed class SingleInstance : IDisposable
 {

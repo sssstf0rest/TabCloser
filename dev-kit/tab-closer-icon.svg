@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <title>Double Click Close Tab inverted trapezoid icon</title>
+  <title>TabCloser inverted trapezoid icon</title>
   <path
     d="M 41 64 H 213 L 165 207 Q 162 216 152 216 H 92 Q 82 216 79 207 L 32 76 Q 28 64 41 64 Z"
     fill="#222B35"

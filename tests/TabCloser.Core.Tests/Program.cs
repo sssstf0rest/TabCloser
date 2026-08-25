@@ -1,6 +1,6 @@
-using DoubleClickCloseTab.Core;
+using TabCloser.Core;
 
-namespace DoubleClickCloseTab.Core.Tests;
+namespace TabCloser.Core.Tests;
 
 internal static class Program
 {

@@ -9,6 +9,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/DoubleClickCloseTab.Windows/DoubleClickCloseTab.Windows.csproj" />
+    <ProjectReference Include="../../src/TabCloser.Windows/TabCloser.Windows.csproj" />
   </ItemGroup>
 </Project>

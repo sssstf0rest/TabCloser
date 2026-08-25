@@ -1,7 +1,7 @@
-using DoubleClickCloseTab.Windows.Input;
-using DoubleClickCloseTab.Windows.Interop;
+using TabCloser.Windows.Input;
+using TabCloser.Windows.Interop;
 
-namespace DoubleClickCloseTab.Windows.Tests;
+namespace TabCloser.Windows.Tests;
 
 internal static class Program
 {

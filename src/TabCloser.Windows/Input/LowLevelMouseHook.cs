@@ -1,9 +1,9 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using DoubleClickCloseTab.Core;
-using DoubleClickCloseTab.Windows.Interop;
+using TabCloser.Core;
+using TabCloser.Windows.Interop;
 
-namespace DoubleClickCloseTab.Windows.Input;
+namespace TabCloser.Windows.Input;
 
 internal sealed class LowLevelMouseHook : IDisposable
 {

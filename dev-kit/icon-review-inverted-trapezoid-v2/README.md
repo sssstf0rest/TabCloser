@@ -1,6 +1,6 @@
 # Inverted Trapezoid Icon
 
-This design was approved and promoted to the Windows executable and notification-area icon. The canonical production copies are `../double-click-close-tab-icon.svg`, `../double-click-close-tab-icon.png`, and `../../icons/double-click-close-tab.ico`.
+This design was approved and promoted to the Windows executable and notification-area icon. The canonical production copies are `../tab-closer-icon.svg`, `../tab-closer-icon.png`, and `../../icons/tab-closer.ico`.
 
 - `master.svg` is the transparent vector source.
 - `master-1024.png` is the high-resolution raster master.

@@ -1,11 +1,11 @@
 using Microsoft.Win32;
 
-namespace DoubleClickCloseTab.Windows;
+namespace TabCloser.Windows;
 
 internal static class StartupRegistration
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string ValueName = "DoubleClickCloseTab";
+    private const string ValueName = "TabCloser";
 
     public static bool IsEnabled()
     {

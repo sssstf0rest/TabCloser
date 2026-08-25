@@ -4,12 +4,12 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Automation;
-using DoubleClickCloseTab.Core;
-using DoubleClickCloseTab.Windows.Interop;
+using TabCloser.Core;
+using TabCloser.Windows.Interop;
 using AutomationPoint = System.Windows.Point;
 using AutomationRect = System.Windows.Rect;
 
-namespace DoubleClickCloseTab.Windows.Browser;
+namespace TabCloser.Windows.Browser;
 
 internal sealed class ChromeTabHitTester
 {

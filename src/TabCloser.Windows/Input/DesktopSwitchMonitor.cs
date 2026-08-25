@@ -1,8 +1,8 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using DoubleClickCloseTab.Windows.Interop;
+using TabCloser.Windows.Interop;
 
-namespace DoubleClickCloseTab.Windows.Input;
+namespace TabCloser.Windows.Input;
 
 internal sealed class DesktopSwitchMonitor : IDisposable
 {

@@ -2,13 +2,13 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using System.Windows.Automation;
-using DoubleClickCloseTab.Core;
-using DoubleClickCloseTab.Windows.Browser;
-using DoubleClickCloseTab.Windows.Interop;
+using TabCloser.Core;
+using TabCloser.Windows.Browser;
+using TabCloser.Windows.Interop;
 using AutomationPoint = System.Windows.Point;
 using AutomationRect = System.Windows.Rect;
 
-namespace DoubleClickCloseTab.Diagnostics;
+namespace TabCloser.Diagnostics;
 
 internal static class Program
 {
@@ -104,10 +104,10 @@ internal static class Program
         OrCondition names = new(
             new PropertyCondition(
                 AutomationElement.NameProperty,
-                "Double-Click Close Tab"),
+                "TabCloser"),
             new PropertyCondition(
                 AutomationElement.NameProperty,
-                "Double-Click Close Tab (paused)"));
+                "TabCloser (paused)"));
         AutomationElementCollection matches = root.FindAll(
             TreeScope.Descendants,
             names);
@@ -151,7 +151,7 @@ internal static class Program
                     "隐藏的图标",
                     StringComparison.Ordinal),
                 information.Name.Contains(
-                    "Double-Click Close Tab",
+                    "TabCloser",
                     StringComparison.Ordinal),
                 information.Name.Contains(
                     "(paused)",
@@ -160,7 +160,7 @@ internal static class Program
         }
 
         HashSet<int> helperProcessIds = Process
-            .GetProcessesByName("DoubleClickCloseTab")
+            .GetProcessesByName("TabCloser")
             .Select(process => process.Id)
             .ToHashSet();
         OrCondition menuNames = new(

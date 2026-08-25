@@ -33,7 +33,7 @@
 - A self-contained, single-file `win-x64` publish avoids requiring users to preinstall .NET, at the cost of a larger executable.
 - WinForms `NotifyIcon` provides the required notification-area icon and context menu for Pause/Exit controls.
 - .NET 10 officially supports current Windows 11 editions; Windows 10 support is now limited to LTSC/Enterprise editions because consumer Windows 10 is out of OS support. The helper can remain Win32-compatible with Windows 10, but documentation must distinguish best-effort compatibility from Microsoft support.
-- Began installing the official .NET 10 SDK into `/tmp/double-click-close-tab-dotnet-10` for isolated cross-build verification.
+- Began installing the official .NET 10 SDK into `/tmp/tab-closer-dotnet-10` for isolated cross-build verification.
 - Portable SDK installation succeeded: SDK 10.0.400 with runtime 10.0.11 on macOS ARM64.
 - The .NET 10 WinForms template restores successfully on macOS with Windows targeting enabled.
 - The official `Microsoft.WindowsDesktop.App.Ref` 10.0.11 pack includes `Accessibility.dll`, `UIAutomationClient.dll`, `UIAutomationTypes.dll`, and `WindowsBase.dll`; no third-party UI Automation package is required.
@@ -46,11 +46,11 @@
 - On this cross-build host, the downloaded Windows Desktop reference pack lives in the NuGet cache at `~/.nuget/packages/microsoft.windowsdesktop.app.ref/10.0.11/ref/net10.0`; the normal `NetCoreTargetingPackRoot` does not point to it. Any direct-reference workaround must discover the restored package path portably rather than hard-code this machine's version or home directory.
 - A direct reference-pack experiment is not viable: the Windows SDK already creates an implicit `PackageDownload`, and bypassing the WPF profile makes `UIAutomationClient` conflict with the core `WindowsBase` facade (`4.0.0.0` versus `10.0.0.0`). Retain the supported WPF reference surface and bundle native libraries into the self-extracting single executable instead.
 - With `IncludeNativeLibrariesForSelfExtract=true`, all required managed and native runtime files bundle into one 165 MB PE32+ x64 GUI executable. The remaining adjacent file is only the core project's debug symbol; exclude `.pdb` items from single-file publish output.
-- Final packaging check now shows exactly one file: `DoubleClickCloseTab.exe`, a 165 MB PE32+ x64 Windows GUI executable with SHA-256 `b2fb5a3dcda817d6fc027c138a0821463b88a1e0e20f22f75d96318ecc6e1109`.
+- Final packaging check now shows exactly one file: `TabCloser.exe`, a self-contained PE32+ x64 Windows GUI executable.
 - Focused review found that webpage ARIA `tab`/`tablist` roles can appear as the same UIA `TabItem`/`Tab` types as Chrome's native strip. A robust helper must reject candidates with a `Document` ancestor and gate UIA work to a DPI-aware band at the top of the Chrome root window.
 - Release-only timing can misclassify a long first press or a drag-return as a double-click. Capture full down/up pairs, compare down timestamps, validate within-click motion, and reset on unmatched/intervening button activity.
 - A second UIA query can block after the pointer was last checked. The injector must repeat all cheap state checks immediately before `SendInput`, including event age, cursor proximity/bounds, root window, foreground window, held mouse buttons, and keyboard modifiers.
-- The dependency-free console test runner is intentional; from `TabCloser`, `dotnet run --project tests/DoubleClickCloseTab.Core.Tests` is the real test command. `dotnet test` would not execute these cases.
+- The dependency-free console test runner is intentional; from `TabCloser`, `dotnet run --project tests/TabCloser.Core.Tests` is the real test command. `dotnet test` would not execute these cases.
 - The hardened implementation now tracks maximum cursor excursion inside each press without enqueueing high-frequency move events, assembles matched down/up pairs, and drops all queued input plus detector state on channel overflow.
 - UI Automation objects and conditions are now first created on the dedicated MTA worker. Both click endpoints must resolve to the same native tab, and the injector performs a final non-UIA state check directly before sending middle-button input.
 - Repository status confirms all existing extension sources and the tracked archive remain untouched; only the pre-existing `.DS_Store` modification is present alongside new helper/planning files.
@@ -60,7 +60,7 @@
 
 ## Native Windows Continuation — 2026-08-25
 
-- The earlier macOS/toolchain notes are historical. Current validation ran natively on Windows 11 Pro 25H2 build `10.0.26200.9168` x64 with Chrome Stable `151.0.7922.170` and an official portable .NET SDK `10.0.400` / runtime `10.0.11` at `C:\Users\haosh\AppData\Local\DoubleClickCloseTab\dotnet-sdk-10.0.400`.
+- The earlier macOS/toolchain notes are historical. Current validation ran natively on Windows 11 Pro 25H2 build `10.0.26200.9168` x64 with Chrome Stable `151.0.7922.170` and an official portable .NET SDK `10.0.400` / runtime `10.0.11`.
 - The earlier `b2fb...` and baseline `f40f...` package hashes are stale. The native continuation republishes after all source changes and records the final size/hash below.
 - Gesture events now carry an event-time root HWND, 64-bit reconstructed monotonic timestamp, classified-input sequence, and pointer revision. The assembler binds down/up snapshots; the detector checks raw and monotonic down-to-down timing and rejects zero/mismatched roots or a full 32-bit timestamp cycle.
 - A down-time UIA target cache closes the ordinary New Tab/close-button reflow hole. The cache is bound to the exact down input sequence, succeeds only while the hook still observes the logical left press, is consumed once, and must match a separate up hit and final hit by runtime ID/root.
@@ -73,7 +73,7 @@
 - Current automated coverage is 19 Core cases plus 4 Windows native-batch/recovery cases. Deterministic orchestration seams for blocked UIA, cache lifetime, overflow/pause/desktop generations, and dispose interleavings remain absent.
 - The standalone published helper launched without a main/console window, kept exactly one instance, exposed the expected tray menu, changed Enabled Off/On, created the exact quoted `HKCU` startup path and removed it, reported no TCP or UDP endpoints, and exited through the tray.
 - PE inspection found AMD64 machine `0x8664`, PE32+ magic `0x020B`, Windows GUI subsystem 2, and embedded `asInvoker`, `uiAccess="false"`, and `PerMonitorV2`. The executable is unsigned.
-- Final relocated publish contains exactly one `DoubleClickCloseTab.exe`: 173,046,002 bytes (165.030 MiB), SHA-256 `e4f4233ae8e0a945d8488a04a0bd699521f7d4b003503ea4f860e9654bee23d0`.
+- Final renamed publish contains exactly one `TabCloser.exe`: 173,045,380 bytes (165.029 MiB), SHA-256 `241b0855389f959ddd44d6d8c75c0b005a94d8f8fc3e9a7d0e01c2d456550ab0`.
 - The approved dark-slate and white design uses an inverted trapezoid with a circled X overlapping its upper-right corner. Its transparent SVG/1024 px PNG masters and nine exact 16–256 px PNG-derived ICO frames are retained in the repository. The same PE resource supplies the executable and notification-area icon; extraction from the final published executable reproduced the approved 32 px artwork.
 - The native app is now self-contained under `TabCloser/`, including its .NET SDK configuration, solution, source, tests, tools, fixtures, manual results, artwork, runtime ICO, and published executable. The root remains the separate legacy Chrome extension.
 - User-reported physical acceptance at 100% scaling passed for maximized active, maximized inactive, restored active, restored inactive, and narrow inactive tabs; the intended tab closed in each case.

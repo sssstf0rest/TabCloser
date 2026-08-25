@@ -1,6 +1,6 @@
 # Windows Manual Acceptance Tests
 
-Run these checks on a supported x64 Windows system with current stable Google Chrome. Use the published `DoubleClickCloseTab.exe`, not a debugger-hosted build.
+Run these checks on a supported x64 Windows system with current stable Google Chrome. Use the published `TabCloser.exe`, not a debugger-hosted build.
 
 ## Recorded Results — 2026-08-25
 

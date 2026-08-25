@@ -1,7 +1,7 @@
-using DoubleClickCloseTab.Core;
-using DoubleClickCloseTab.Windows.Interop;
+using TabCloser.Core;
+using TabCloser.Windows.Interop;
 
-namespace DoubleClickCloseTab.Windows.Input;
+namespace TabCloser.Windows.Input;
 
 internal static class WindowsDoubleClickSettings
 {
