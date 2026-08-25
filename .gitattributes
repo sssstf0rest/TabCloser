@@ -1,1 +1,1 @@
-artifacts/win-x64/DoubleClickCloseTab.exe filter=lfs diff=lfs merge=lfs -text
+artifacts/win-x64/TabCloser.exe filter=lfs diff=lfs merge=lfs -text
