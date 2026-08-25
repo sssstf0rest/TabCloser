@@ -1,0 +1,98 @@
+# Findings
+
+- Session catch-up reported no prior unsynchronized work.
+- Planning files did not previously exist.
+- Repository is a small, dependency-free Chrome Manifest V3 extension; no package manifest, build configuration, linter, or automated test suite is present.
+- Core files are at the root: `manifest.json`, `background.js`, `content.js`, `popup.html`, and `popup.js`.
+- `icons/` holds runtime icon variants, `dev-kit/` holds store/promotional images, and `docs/privacy-policy.html` contains the privacy policy.
+- Development installation is manual: open `chrome://extensions`, enable Developer mode, and load the repository root unpacked; changed extensions/tabs must be reloaded.
+- JavaScript style observed: 2-space indentation, semicolons, single quotes, `camelCase` functions/variables, and `UPPER_SNAKE_CASE` constants. HTML/CSS also use 2-space indentation; CSS classes are kebab-case.
+- Manual behavior centers on double-click timing, exclusions for selected text/interactive controls, enabled-state persistence, icon/badge updates, and tab closing.
+- Existing `.DS_Store` modification is unrelated user work and must remain untouched.
+- Hidden-file inspection found no `.github/`, `CONTRIBUTING*`, package/tooling config, or PR template.
+- Seven visible commits use short, informal single-line subjects (`update README`, `Fix wording in installation instructions`) with no Conventional Commits pattern. Recommend brief imperative, change-specific subjects and discourage vague `update` messages.
+- Current branch is `updatetab-area-experiment`; remote points to the GitHub project.
+- With no formal PR policy, sensible guide requirements are a clear summary, manual verification notes, linked issue when applicable, and screenshots for popup/icon changes.
+- Useful lightweight validation commands are `node --check background.js content.js popup.js`, `python3 -m json.tool manifest.json >/dev/null`, and `git diff --check`; an independent pass confirmed all currently succeed.
+- Preserve the dependency-free design and the content-script IIFE. Call out permission or manifest changes in PR descriptions because they affect extension scope and review.
+- QA review confirms `background.js` closes `sender.tab.id` and rechecks enabled state; manual tests should verify only the originating tab closes and that the popup/icon/badge state persists.
+- Security-sensitive changes include the intentionally broad `<all_urls>` content-script scope, permissions, external requests, and data handling; corresponding manifest/store/privacy disclosures must stay aligned.
+- Final `AGENTS.md` is 356 words, uses the required title and Markdown headings, and remains within the requested 200–400-word range.
+- Final validation passed: all three JavaScript files parse, `manifest.json` parses, the guide has no trailing whitespace, and `git diff --check` reports no errors.
+
+## Windows Helper Build
+
+- User authorized building a C#/.NET tray application for the exact native-tab gesture.
+- Recommended architecture is a global `WH_MOUSE_LL` listener with a tiny callback, Windows-configured double-click thresholds, semantic accessibility hit-testing, and exact-target closure via an injected middle click.
+- Both clicks must resolve to the same Chrome tab; target buttons and ambiguous/non-Chrome elements must be rejected.
+- Ordinary Chrome should not require elevation. `SendInput` cannot control a higher-integrity elevated Chrome process.
+- Existing extension files and `.DS_Store` changes remain user-owned and must be preserved.
+- The host currently has no `dotnet` command, so verification requires a temporary portable SDK or static-only validation.
+- As of 2026-08-24, .NET 10 is the active LTS release (supported through 2028); .NET 8 reaches end of support in November 2026, so the new helper should target .NET 10.
+- Cross-building a Windows Desktop project on macOS is officially supported when `EnableWindowsTargeting=true` downloads the Windows targeting packs.
+- A self-contained, single-file `win-x64` publish avoids requiring users to preinstall .NET, at the cost of a larger executable.
+- WinForms `NotifyIcon` provides the required notification-area icon and context menu for Pause/Exit controls.
+- .NET 10 officially supports current Windows 11 editions; Windows 10 support is now limited to LTSC/Enterprise editions because consumer Windows 10 is out of OS support. The helper can remain Win32-compatible with Windows 10, but documentation must distinguish best-effort compatibility from Microsoft support.
+- Began installing the official .NET 10 SDK into `/tmp/double-click-close-tab-dotnet-10` for isolated cross-build verification.
+- Portable SDK installation succeeded: SDK 10.0.400 with runtime 10.0.11 on macOS ARM64.
+- The .NET 10 WinForms template restores successfully on macOS with Windows targeting enabled.
+- The official `Microsoft.WindowsDesktop.App.Ref` 10.0.11 pack includes `Accessibility.dll`, `UIAutomationClient.dll`, `UIAutomationTypes.dll`, and `WindowsBase.dll`; no third-party UI Automation package is required.
+- Architecture review recommends a platform-neutral core state machine plus a Windows WinForms tray executable. UI Automation must run on a dedicated MTA worker; live `AutomationElement` objects should not cross threads.
+- The hook will observe left-button release events, respect Windows double-click time/rectangle settings, require the same UIA runtime ID/root window twice, re-hit-test the current cursor, then inject middle-button down/up without moving the cursor.
+- Initial build proved the core library and all nine state-machine tests pass. The Windows project failed because bare assembly references were not resolved by the cross-platform SDK, despite the files existing in the targeting pack.
+- Enabling the official WPF reference surface alongside WinForms resolved managed UI Automation types; the complete solution now cross-builds with zero warnings and zero errors.
+- Build artifacts are ignored correctly. Git whitespace checks pass, and the pre-existing `.DS_Store` modification remains untouched.
+- The first successful `win-x64` publish produced a valid x64 Windows GUI executable, but it also emitted WPF native DLLs and a PDB. `UseWPF` solved UI Automation reference resolution at build time, but it prevents the intended one-file handoff and adds unnecessary runtime payload. Investigate a reference-only UI Automation setup before finalizing the package.
+- On this cross-build host, the downloaded Windows Desktop reference pack lives in the NuGet cache at `~/.nuget/packages/microsoft.windowsdesktop.app.ref/10.0.11/ref/net10.0`; the normal `NetCoreTargetingPackRoot` does not point to it. Any direct-reference workaround must discover the restored package path portably rather than hard-code this machine's version or home directory.
+- A direct reference-pack experiment is not viable: the Windows SDK already creates an implicit `PackageDownload`, and bypassing the WPF profile makes `UIAutomationClient` conflict with the core `WindowsBase` facade (`4.0.0.0` versus `10.0.0.0`). Retain the supported WPF reference surface and bundle native libraries into the self-extracting single executable instead.
+- With `IncludeNativeLibrariesForSelfExtract=true`, all required managed and native runtime files bundle into one 165 MB PE32+ x64 GUI executable. The remaining adjacent file is only the core project's debug symbol; exclude `.pdb` items from single-file publish output.
+- Final packaging check now shows exactly one file: `DoubleClickCloseTab.exe`, a 165 MB PE32+ x64 Windows GUI executable with SHA-256 `b2fb5a3dcda817d6fc027c138a0821463b88a1e0e20f22f75d96318ecc6e1109`.
+- Focused review found that webpage ARIA `tab`/`tablist` roles can appear as the same UIA `TabItem`/`Tab` types as Chrome's native strip. A robust helper must reject candidates with a `Document` ancestor and gate UIA work to a DPI-aware band at the top of the Chrome root window.
+- Release-only timing can misclassify a long first press or a drag-return as a double-click. Capture full down/up pairs, compare down timestamps, validate within-click motion, and reset on unmatched/intervening button activity.
+- A second UIA query can block after the pointer was last checked. The injector must repeat all cheap state checks immediately before `SendInput`, including event age, cursor proximity/bounds, root window, foreground window, held mouse buttons, and keyboard modifiers.
+- The dependency-free console test runner is intentional; from `TabCloser`, `dotnet run --project tests/DoubleClickCloseTab.Core.Tests` is the real test command. `dotnet test` would not execute these cases.
+- The hardened implementation now tracks maximum cursor excursion inside each press without enqueueing high-frequency move events, assembles matched down/up pairs, and drops all queued input plus detector state on channel overflow.
+- UI Automation objects and conditions are now first created on the dedicated MTA worker. Both click endpoints must resolve to the same native tab, and the injector performs a final non-UIA state check directly before sending middle-button input.
+- Repository status confirms all existing extension sources and the tracked archive remain untouched; only the pre-existing `.DS_Store` modification is present alongside new helper/planning files.
+- `dotnet format --verify-no-changes` found only whitespace layout differences in the new switch body and two test expressions; no analyzer or semantic diagnostics were reported.
+- After formatting, C# formatting verification, extension JavaScript parsing, both JSON files, project/manifest XML, and Git whitespace validation all pass. `AGENTS.md` is 306 words, within its requested 200–400-word range.
+- The post-documentation solution build again completes with zero warnings/errors, and all 14 dependency-free core tests pass.
+
+## Native Windows Continuation — 2026-08-25
+
+- The earlier macOS/toolchain notes are historical. Current validation ran natively on Windows 11 Pro 25H2 build `10.0.26200.9168` x64 with Chrome Stable `151.0.7922.170` and an official portable .NET SDK `10.0.400` / runtime `10.0.11` at `C:\Users\haosh\AppData\Local\DoubleClickCloseTab\dotnet-sdk-10.0.400`.
+- The earlier `b2fb...` and baseline `f40f...` package hashes are stale. The native continuation republishes after all source changes and records the final size/hash below.
+- Gesture events now carry an event-time root HWND, 64-bit reconstructed monotonic timestamp, classified-input sequence, and pointer revision. The assembler binds down/up snapshots; the detector checks raw and monotonic down-to-down timing and rejects zero/mismatched roots or a full 32-bit timestamp cycle.
+- A down-time UIA target cache closes the ordinary New Tab/close-button reflow hole. The cache is bound to the exact down input sequence, succeeds only while the hook still observes the logical left press, is consumed once, and must match a separate up hit and final hit by runtime ID/root.
+- Queue overflow, pause/resume, desktop/UAC switching, disposal, new classified input, and every coordinate change invalidate pending work. Disposal disables and advances the generation before unhooking, preventing a blocked final UIA call from injecting during exit.
+- Final injection samples one exact point, sandwiches two native-state checks with interaction-generation/sequence/revision callbacks, and attempts one marked middle-up recovery if `SendInput` reports only one of the two requested events.
+- Chrome 151 exposed real browser tabs as UIA `TabItem` with class `Tab`; generic Chrome Views controls exposed `TabbedPaneTab`. Exact `Tab` allowlisting is intentionally version-sensitive and fail-closed. Chromium source confirms these names derive from distinct internal Views metadata types, but they are not a promised external automation contract.
+- Live maximized UIA inspection accepted 42/42 native tabs, including 41 narrow inactive tabs with a minimum observed width near 57 px. It rejected two top-of-page ARIA tabs, the active tab's exposed close-button point, and two non-browser `TabbedPaneTab` controls.
+- Live unobscured restored-window inspection accepted four native tabs and rejected two ARIA tabs plus four exposed close-button points. A later injected-input probe preserved 5/5 native tabs.
+- A 20-iteration live hit-test benchmark accepted one stable native identity every time. With MTA startup warm-up, the first query took 22.825 ms, median 5.536 ms, p95 6.340 ms, and maximum 22.825 ms. Slow or very short presses still fail closed because down UIA must finish before left-up.
+- Current automated coverage is 19 Core cases plus 4 Windows native-batch/recovery cases. Deterministic orchestration seams for blocked UIA, cache lifetime, overflow/pause/desktop generations, and dispose interleavings remain absent.
+- The standalone published helper launched without a main/console window, kept exactly one instance, exposed the expected tray menu, changed Enabled Off/On, created the exact quoted `HKCU` startup path and removed it, reported no TCP or UDP endpoints, and exited through the tray.
+- PE inspection found AMD64 machine `0x8664`, PE32+ magic `0x020B`, Windows GUI subsystem 2, and embedded `asInvoker`, `uiAccess="false"`, and `PerMonitorV2`. The executable is unsigned.
+- Final relocated publish contains exactly one `DoubleClickCloseTab.exe`: 173,046,002 bytes (165.030 MiB), SHA-256 `e4f4233ae8e0a945d8488a04a0bd699521f7d4b003503ea4f860e9654bee23d0`.
+- The approved dark-slate and white design uses an inverted trapezoid with a circled X overlapping its upper-right corner. Its transparent SVG/1024 px PNG masters and nine exact 16–256 px PNG-derived ICO frames are retained in the repository. The same PE resource supplies the executable and notification-area icon; extraction from the final published executable reproduced the approved 32 px artwork.
+- The native app is now self-contained under `TabCloser/`, including its .NET SDK configuration, solution, source, tests, tools, fixtures, manual results, artwork, runtime ICO, and published executable. The root remains the separate legacy Chrome extension.
+- User-reported physical acceptance at 100% scaling passed for maximized active, maximized inactive, restored active, restored inactive, and narrow inactive tabs; the intended tab closed in each case.
+- User-reported physical ARIA acceptance passed: neither the linked nor button `role="tab"` webpage control closed a native tab, and a subsequent real tab gesture still closed correctly.
+- User-reported physical race acceptance passed for a pair split across two tabs within 500 ms, a greater-than-20-pixel drag away and back, and rapid movement into page content at the second release; no unintended tab close or observed page middle-click occurred.
+- User-reported physical timing/input acceptance passed at the current 500 ms Windows setting: single left-click, roughly one-second slow pair, Ctrl/Shift/Alt/Windows-modified double-clicks, double-right-click, and a wheel-interrupted left-click pair all closed no tab.
+- User-reported New Tab and blank tab-strip/title-bar acceptance passed: the former closed no existing tab and the latter closed no tab, allowing their ordinary Chrome behaviors.
+- User-reported Chrome-control acceptance passed for the address bar/toolbar, bookmarks area, page content, Downloads control/panel, and maximize/restore control; their ordinary behavior caused no tab close.
+- User-reported native-close/reflow acceptance passed: close-button A followed quickly by adjacent tab B closed only A, and one native middle-click closed exactly its intended tab without amplification.
+- User-reported process/root-boundary acceptance passed: a File Explorer tab ignored the gesture, a sub-500-ms pair across two Chrome windows closed neither tab, and a Chrome-to-File-Explorer pair affected neither tab.
+- User-reported pause/re-enable acceptance passed: paused gestures were ignored, a paused single click did not bridge into enabled state, and ordinary double-click closure recovered after re-enable.
+- User-reported live Windows-setting acceptance passed at Slow and Fast positions without restarting the helper: calibrated slow input was accepted only at Slow, genuinely fast input was accepted at Fast, and normal behavior returned after restoration. The restored `HKCU\Control Panel\Mouse\DoubleClickSpeed` value was independently read as `500`.
+- User-reported lock/UAC acceptance passed: partial input did not bridge across workstation lock/unlock or a secure-desktop UAC prompt/cancellation, and ordinary closure recovered after each transition.
+- User-reported integrity-boundary acceptance passed: the unelevated helper did nothing to elevated Chrome and stayed tray-responsive; after returning to normal Chrome, exact one-tab closure recovered.
+- A read-only post-test baseline found one helper instance, normal Chrome running, and no `HKCU` startup entry enabled before the sign-out/in test.
+- User-reported sign-out/in startup acceptance passed: the pre-test Run value exactly matched the quoted published executable, one tray instance appeared automatically after sign-in, physical closure worked, and a manual second launch created no duplicate. After startup was disabled, read-only checks confirmed one helper process and no Run value.
+- The Chrome window initially remained at `96` DPI after selecting 150% scaling. Restarting Chrome created a new top-level window that independently reported the expected `144` DPI; a post-test probe still reported `144` with one helper instance.
+- User-reported 150% physical acceptance passed all 11 targeted intended/exclusion cases: active/inactive maximized/restored, narrow inactive, New Tab, blank strip, both ARIA controls with native recovery, close-button reflow, drag-return, and post-release movement.
+- User explicitly confirmed the same 11 targeted cases passed with Windows display scaling at 200%, then restored 100%; a post-test probe independently measured Chrome at `96` DPI with one helper instance.
+- One 1920×1080 monitor remains available, so mixed-DPI/negative-coordinate coverage cannot be exercised. Windows Sandbox is not installed, so clean-account/no-installed-runtime coverage requires another Windows account or an environment change.
+- Mixed-monitor and clean-account coverage are accepted, explicitly unclaimed environment limitations and do not block Phase 4 completion. The current repository-specific `AGENTS.md` is 325 words and reflects both console runners and the final manual workflow.
+- A residual theoretical gap remains: UIA runs asynchronously after the hook down event, so an independently replaced tab at the same point in the same HWND before the first UIA query cannot be distinguished from the event-time tab. Root, held-state, sequence, runtime-ID, and repeated hit checks sharply narrow this, but cannot mathematically bind semantic identity at hook time without moving UIA into the callback.

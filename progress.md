@@ -1,0 +1,67 @@
+# Progress
+
+- 2026-08-24: Initialized the planning-with-files workflow.
+- 2026-08-24: Inspected tracked layout and core extension files; confirmed there is no Node/build/test toolchain.
+- 2026-08-24: Reviewed hidden files, recent commit subjects, and absence of contribution/PR templates.
+- 2026-08-24: Consolidated independent structure/tooling and Git-convention reviews.
+- 2026-08-24: First `AGENTS.md` patch failed validation due to a missing add-line prefix; no target file was created.
+- 2026-08-24: Created the repository-specific `AGENTS.md` draft.
+- 2026-08-24: Validated the final guide at 356 words; all syntax, JSON, and whitespace checks passed.
+- 2026-08-24: Skill completion check did not recognize the plan's status syntax; adapting the plan format before final handoff.
+- 2026-08-24: Updated the plan to the required phase/status format; all three phases now pass the completion check.
+- 2026-08-24: Task complete. Existing `.DS_Store` modification remains untouched.
+- 2026-08-24: Began Windows helper task; reset the active plan while retaining prior findings/history.
+- 2026-08-24: Confirmed the host has no preinstalled .NET SDK; will use an isolated portable SDK for validation.
+- 2026-08-24: Selected .NET 10 LTS, WinForms tray UI, and cross-targeting via `EnableWindowsTargeting`.
+- 2026-08-24: Started an isolated official .NET 10 SDK installation in `/tmp` for builds and tests.
+- 2026-08-24: Confirmed the portable .NET 10.0.400 SDK is operational.
+- 2026-08-24: Verified cross-platform Windows targeting and official UI Automation reference assemblies.
+- 2026-08-24: Completed architecture/toolchain phase; began application implementation.
+- 2026-08-24: Added the core state machine, nine dependency-free tests, tray lifecycle, Win32 input hook/injection, UIA hit-testing, and service orchestration.
+- 2026-08-24: Core tests pass; Windows cross-build exposed unresolved managed UI Automation references and is being corrected.
+- 2026-08-24: Enabled the official Windows Desktop WPF reference surface; the complete solution now builds with zero warnings/errors.
+- 2026-08-24: Initial publish produced a valid PE32+ x64 GUI executable, but also six adjacent WPF/native files; packaging refinement remains open.
+- 2026-08-24: A findings/progress patch initially targeted headings that did not exist; no file changes were applied, then the update was reapplied against the actual file structure.
+- 2026-08-24: Located the restored Windows Desktop reference assemblies in the NuGet cache; evaluating a portable reference-only configuration to eliminate unnecessary WPF publish files.
+- 2026-08-24: Reference-only experiment failed first with duplicate implicit `PackageDownload`, then with a `WindowsBase` version conflict; reverted to the supported WPF reference surface and configured native libraries plus symbols into/out of the single-file package as appropriate.
+- 2026-08-24: Rebuilt cleanly and reran all nine tests successfully. The first `--no-restore` RID publish failed because the solution restore lacked a `win-x64` target; normal profile publish restored that target and succeeded.
+- 2026-08-24: Native dependencies now bundle into the executable; added a publish-item filter for the last adjacent project-reference PDB.
+- 2026-08-24: Re-published and confirmed the output directory contains one self-contained x64 Windows GUI executable and no sidecar files.
+- 2026-08-24: Completed focused safety review; began hardening against webpage ARIA tabs, stale-pointer injection, and release-only double-click misclassification.
+- 2026-08-24: One combined `apply_patch` for injector/service changes had a malformed hunk boundary; no partial changes were applied, then the files were updated separately.
+- 2026-08-24: First hardened build found two nullable-value warnings promoted to errors in test assertions; replaced the assertions with a value-returning nullable guard.
+- 2026-08-24: Hardened solution builds with zero warnings/errors and all 14 detector/assembler tests pass.
+- 2026-08-24: Formatting verification found mechanical whitespace differences; applying the solution formatter before the next build.
+- 2026-08-24: Updated root/helper documentation, Windows acceptance checks, contributor guidance, and repository architecture notes; implementation phase is complete.
+- 2026-08-24: Documentation/test phase complete. Formatting, JavaScript, JSON, XML, whitespace, build, and all 14 automated tests pass; final publish/review is in progress.
+- 2026-08-25: Resumed on native Windows 11 with Chrome Stable 151 and installed the official portable .NET 10.0.400 SDK without registering a system-wide runtime.
+- 2026-08-25: Added event-time roots, 64-bit monotonic timing, input/pointer revisions, desktop-switch monitoring, generation invalidation, down-time target capture, and shutdown invalidation.
+- 2026-08-25: Hardened final exact-point validation and partial `SendInput` recovery; added a four-case Windows console runner and expanded Core coverage from 14 to 19 cases.
+- 2026-08-25: Added the local top-band ARIA fixture and privacy-safe MTA diagnostics with Chrome UIA inspection, point benchmarking, and helper tray inspection.
+- 2026-08-25: Observed Chrome 151 native class `Tab`, webpage ARIA `Document` ancestry, and generic `TabbedPaneTab`; added the exact fail-closed native class allowlist.
+- 2026-08-25: Live maximized inspection accepted 42 native tabs and rejected two ARIA plus two generic Chrome tab controls; unobscured restored inspection accepted four native tabs and rejected both ARIA tabs and exposed close-button points.
+- 2026-08-25: UIA benchmark passed 20/20 with stable identity; MTA warm-up reduced the measured first query to 22.8 ms and subsequent median to 5.5 ms.
+- 2026-08-25: Release build passed at 0 warnings/errors; Core runner passed 19/19 and Windows runner passed 4/4. A final post-documentation validation rerun is next.
+- 2026-08-25: Published and launched one self-contained GUI executable; verified second-instance prevention, zero observed TCP/UDP endpoints, injected double-left rejection, tray pause/re-enable, reversible startup registration, and tray Exit.
+- 2026-08-25: Updated all requested documentation with native-Windows evidence and explicitly unclaimed physical/hardware/session cases.
+- 2026-08-25: Final validation passed: 0-warning Release build, 19/19 Core, 4/4 Windows, format, JavaScript, JSON, XML, network-source, legacy-extension, and Git whitespace checks.
+- 2026-08-25: Final publish contains one 172,988,658-byte executable with SHA-256 `d7c5140bbae8252683e9227440054c07eb3f98f65ed0262af69642d0c8223935`.
+- 2026-08-25: User reported that physical Chrome tab double-click closure works correctly; ARIA exclusions were not yet tested manually.
+- 2026-08-25: User reported both local ARIA-tab exclusions passed and confirmed a real native tab still closed afterward.
+- 2026-08-25: User reported all eight follow-up cases passed: active/inactive maximized and restored tabs, narrow inactive tabs, a two-tab split pair, drag-away-return, and rapid post-release movement into page content.
+- 2026-08-25: User reported all ten timing/modifier/control-surface cases passed: single and slow clicks, four modifiers, right-click and wheel interruptions, New Tab, and blank tab-strip/title-bar space.
+- 2026-08-25: User reported all ten Chrome-control/boundary cases passed, including Downloads, close-button reflow, single native middle-click, File Explorer, two Chrome windows, and a Chrome-to-Explorer split pair.
+- 2026-08-25: User reported all seven pause/dynamic-timing cases passed; a read-only registry check confirmed the Windows double-click interval was restored to `500` ms.
+- 2026-08-25: User reported all six lock/UAC/elevation cases passed; afterward one helper instance and normal Chrome were running, with startup still disabled.
+- 2026-08-25: User reported the sign-out/in startup cycle passed, including automatic single-instance launch, physical closure, and duplicate-launch rejection; the disabled Run entry was independently confirmed absent afterward.
+- 2026-08-25: Chrome required a restart after selecting 150% scaling; independent probes then measured `144` DPI before and after the user's successful 11-case physical matrix.
+- 2026-08-25: User confirmed all 11 targeted cases passed at Windows 200% display scaling and restored 100%; Chrome then independently reported `96` DPI with one helper instance.
+- 2026-08-25: Accepted mixed-DPI/negative-coordinate monitor and clean-account/no-installed-runtime cases as explicit environment limitations; all available manual acceptance passed and Phase 4 is complete.
+- 2026-08-25: Generated a custom transparent application icon, packaged 16/20/24/32/40/48/64/128/256 px ICO frames, embedded it in the Windows executable, and reused it for the notification-area icon.
+- 2026-08-25: Rebuilt and republished after icon integration; Release build passed with zero warnings/errors, Core passed 19/19, Windows passed 4/4, formatting passed, and File Explorer visibly showed the new executable icon.
+- 2026-08-25: Final icon publish contains one 173,209,842-byte executable with SHA-256 `04d7e74a9453157c3c8bd42512faef379fb88b981b385fb29bb07156460eb65f`; the helper is running from that artifact with startup disabled.
+- 2026-08-26: User approved the simpler dark-slate and white inverted-trapezoid design with its circled X at the upper-right; promoted its SVG and 1024 px PNG to the canonical production artwork.
+- 2026-08-26: Replaced the Windows ICO with nine byte-preserved approved PNG frames at 16, 20, 24, 32, 40, 48, 64, 128, and 256 px. Release build passed with zero warnings/errors, Core passed 19/19, and Windows passed 4/4.
+- 2026-08-26: Published and relaunched the approved-icon build. The final one-file executable is 173,046,002 bytes with SHA-256 `8030934feadb4b47cf623e45b017ee6e778a5d784b218098492df6b5bdd4d173`; icon extraction matched the approved design, single-instance enforcement passed, no TCP/UDP endpoints were observed, and startup remains disabled.
+- 2026-08-26: Separated the native app into the self-contained `TabCloser/` directory, moving its solution, SDK configuration, source, tests, tools, fixtures, artifacts, icon assets, and Windows-specific planning records while leaving the legacy extension at the repository root.
+- 2026-08-26: Rebuilt and republished from inside `TabCloser`; the relocated one-file executable remains 173,046,002 bytes with SHA-256 `e4f4233ae8e0a945d8488a04a0bd699521f7d4b003503ea4f860e9654bee23d0` and was relaunched from `TabCloser/artifacts/win-x64`.

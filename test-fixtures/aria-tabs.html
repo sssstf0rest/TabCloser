@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARIA Tab Safety Fixture</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    [role='tablist'] {
+      position: fixed;
+      inset: 0 auto auto 0;
+      display: flex;
+      height: 14px;
+      line-height: 14px;
+    }
+
+    [role='tab'] {
+      display: block;
+      height: 14px;
+      padding: 0 12px;
+    }
+  </style>
+</head>
+<body>
+  <div role="tablist" aria-label="Fixture tabs">
+    <a role="tab" aria-selected="true" href="#first">Linked ARIA tab</a>
+    <button role="tab" aria-selected="false" type="button">Button ARIA tab</button>
+  </div>
+</body>
+</html>

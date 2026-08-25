@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "Q+e+i4wIb8Y=",
+  "success": true,
+  "projectFilePath": "D:\\Workspace\\Repo\\Double-Click-Close-Tab\\TabCloser\\src\\DoubleClickCloseTab.Windows\\DoubleClickCloseTab.Windows.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\haosh\\.nuget\\packages\\microsoft.net.illink.tasks\\10.0.11\\microsoft.net.illink.tasks.10.0.11.nupkg.sha512",
+    "C:\\Users\\haosh\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\10.0.11\\microsoft.netcore.app.runtime.win-x64.10.0.11.nupkg.sha512",
+    "C:\\Users\\haosh\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\10.0.11\\microsoft.windowsdesktop.app.runtime.win-x64.10.0.11.nupkg.sha512",
+    "C:\\Users\\haosh\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\10.0.11\\microsoft.aspnetcore.app.runtime.win-x64.10.0.11.nupkg.sha512"
+  ],
+  "logs": []
+}
