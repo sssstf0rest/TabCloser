@@ -9,6 +9,11 @@
 </p>
 
 TabCloser is a lightweight Windows tray app that adds a simple double-click-to-close gesture to Chrome's native tab bar. It runs locally, requires no browser extension, and never reads page content, titles, or URLs.
+
+<p align="center">
+  <img src="promotion%20sources/promo%20gif.gif" alt="TabCloser closing a Chrome tab with a double-click">
+</p>
+
 <!--
 ## Features
 
