@@ -2,14 +2,14 @@
 
 Run these checks on a supported x64 Windows system with current stable Google Chrome. Use the published `TabCloser.exe`, not a debugger-hosted build.
 
-## Recorded Results — 2026-08-25
+## Recorded Results — 2026-08-25 through 2026-08-26
 
 Environment: Windows 11 Pro 25H2 build `10.0.26200.9168`, Chrome Stable `151.0.7922.170`, x64, one 1920×1080 display at 96 DPI/100%.
 
 | Area | Result |
 |---|---|
 | Release solution build | Passed with 0 warnings and 0 errors. |
-| Automated runners | 19/19 Core cases and 4/4 Windows injection-batch cases passed. |
+| Automated runners | 19/19 Core cases and 9/9 Windows injection, launch-policy, restore-signal, and persistence cases passed. |
 | Maximized live UIA | 42/42 native tabs accepted, including 41 narrow inactive tabs (minimum observed width about 57 px); exposed close buttons rejected. Two top-of-page ARIA tabs and two Chrome `TabbedPaneTab` controls were rejected. |
 | Restored live UIA | Four native tabs accepted in an unobscured 1200×800 window; two ARIA tabs and four exposed close-button points were rejected. A later injected-input probe kept all 5/5 native tabs open. |
 | Hit-test timing | 20/20 accepted with one stable identity; first warmed query 22.8 ms, median 5.5 ms, p95 6.3 ms. |
@@ -40,7 +40,11 @@ The intended physical close gesture and all available control, input, race, refl
 - Launch the executable and confirm exactly one notification-area icon appears.
 - Launch it again; confirm a second instance exits without another icon.
 - Toggle **Enabled** off and confirm all gestures are ignored; turn it back on.
-- Enable **Start with Windows**, sign out/in, and confirm one instance starts. Disable it again and confirm the startup entry is removed.
+- Enable **Start with Windows**, choose **Hide tray icon**, and accept the confirmation. Confirm the icon disappears while the process remains running and tab closing still works.
+- Sign out and back in, or restart Windows. Confirm one instance starts, the icon remains hidden, and tab closing still works.
+- Launch the executable manually. Confirm no duplicate process starts and the existing tray icon reappears.
+- Sign out and back in again. Confirm the icon remains visible, proving that manual restoration cleared the saved hidden state.
+- Disable **Start with Windows** and confirm the startup entry is removed.
 - Choose **Exit** and confirm the process ends.
 
 ## Intended Gesture

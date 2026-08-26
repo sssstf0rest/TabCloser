@@ -171,6 +171,9 @@ internal static class Program
             new PropertyCondition(
                 AutomationElement.NameProperty,
                 "Start with Windows"),
+            new PropertyCondition(
+                AutomationElement.NameProperty,
+                "Hide tray icon..."),
             new PropertyCondition(AutomationElement.NameProperty, "Exit"));
         AutomationElementCollection menuMatches = root.FindAll(
             TreeScope.Descendants,
