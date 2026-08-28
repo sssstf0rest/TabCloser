@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Windows.Automation;
 using TabCloser.Core;
@@ -43,7 +44,7 @@ internal static class Program
                    out benchmarkY)))))
         {
             Console.Error.WriteLine(
-                "Pass --tray, or a Chrome root HWND optionally followed by a screen X and Y.");
+                "Pass --tray, or a supported browser root HWND optionally followed by a screen X and Y.");
             return 64;
         }
 
@@ -73,7 +74,7 @@ internal static class Program
         })
         {
             IsBackground = true,
-            Name = "Chrome UIA diagnostic worker",
+            Name = "Browser UIA diagnostic worker",
         };
         worker.SetApartmentState(ApartmentState.MTA);
         worker.Start();
@@ -166,8 +167,11 @@ internal static class Program
         OrCondition menuNames = new(
             new PropertyCondition(
                 AutomationElement.NameProperty,
-                "Double-click a Chrome tab to close it"),
+                "Double-click a supported top tab to close it"),
             new PropertyCondition(AutomationElement.NameProperty, "Enabled"),
+            new PropertyCondition(
+                AutomationElement.NameProperty,
+                "Microsoft Edge top tabs (experimental)"),
             new PropertyCondition(
                 AutomationElement.NameProperty,
                 "Start with Windows"),
@@ -217,7 +221,7 @@ internal static class Program
         ScreenPoint point)
     {
         const int iterations = 20;
-        ChromeTabHitTester hitTester = new();
+        BrowserTabHitTester hitTester = new();
         List<double> durationsMilliseconds = [];
         string? expectedIdentity = null;
         int accepted = 0;
@@ -257,7 +261,7 @@ internal static class Program
     private static DiagnosticReport Inspect(nint rootWindow)
     {
         AutomationElement root = AutomationElement.FromHandle(rootWindow);
-        ChromeTabHitTester hitTester = new();
+        BrowserTabHitTester hitTester = new();
         List<TabItemReport> tabItems = [];
         AutomationElementCollection documents = root.FindAll(
             TreeScope.Descendants,
@@ -278,6 +282,9 @@ internal static class Program
             "Complete",
             rootWindow.ToInt64(),
             root.Current.ProcessId,
+            GetRootClassName(rootWindow),
+            GetBrowserKind(rootWindow, root.Current.ProcessId),
+            NativeMethods.GetForegroundWindow() == rootWindow,
             NativeMethods.GetDpiForWindow(rootWindow),
             RectangleReport.From(root.Current.BoundingRectangle),
             documents.Count,
@@ -288,7 +295,7 @@ internal static class Program
     private static TabItemReport InspectTabItem(
         AutomationElement tab,
         nint rootWindow,
-        ChromeTabHitTester hitTester)
+        BrowserTabHitTester hitTester)
     {
         AutomationElement.AutomationElementInformation information = tab.Current;
         List<AncestorReport> ancestors = [];
@@ -297,7 +304,7 @@ internal static class Program
              ancestor is not null && depth < MaximumAncestorDepth;
              depth++)
         {
-            ancestors.Add(AncestorReport.From(ancestor.Current));
+            ancestors.Add(AncestorReport.From(ancestor));
             ancestor = TreeWalker.RawViewWalker.GetParent(ancestor);
         }
 
@@ -348,10 +355,39 @@ internal static class Program
                 ancestorReport.NativeWindowHandle ==
                 unchecked((int)rootWindow.ToInt64())),
             ancestors.Select(ancestorReport => ancestorReport.ControlType).ToArray(),
+            ancestors.Where(ancestorReport =>
+                ancestorReport.ControlType == "ControlType.Tab").ToArray(),
             buttonBounds,
             bodyPoint,
             bodyHit is not null,
             closeButtonRejected);
+    }
+
+    private static string GetRootClassName(nint rootWindow)
+    {
+        StringBuilder className = new(capacity: 256);
+        return NativeMethods.GetClassNameW(rootWindow, className, className.Capacity) == 0
+            ? string.Empty
+            : className.ToString();
+    }
+
+    private static string GetBrowserKind(nint rootWindow, int processId)
+    {
+        try
+        {
+            using Process process = Process.GetProcessById(processId);
+            BrowserKind? browser = BrowserTabPolicy.ClassifyRoot(
+                process.ProcessName,
+                GetRootClassName(rootWindow));
+            return browser?.ToString() ?? "Unsupported";
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or
+            InvalidOperationException or
+            System.ComponentModel.Win32Exception)
+        {
+            return "Unavailable";
+        }
     }
 
     private static ScreenPoint? FindBodyPoint(
@@ -396,6 +432,9 @@ internal static class Program
         string Status,
         long RootWindow,
         int RootProcessId,
+        string RootClassName,
+        string BrowserKind,
+        bool RootIsForeground,
         uint RootDpi,
         RectangleReport RootBounds,
         int DocumentCount,
@@ -457,6 +496,7 @@ internal static class Program
         bool HasDocumentAncestor,
         bool ReachesRootWindow,
         IReadOnlyList<string> AncestorControlTypes,
+        IReadOnlyList<AncestorReport> TabAncestors,
         IReadOnlyList<RectangleReport> DescendantButtonBounds,
         ScreenPoint? BodyPoint,
         bool BodyHitAccepted,
@@ -466,30 +506,56 @@ internal static class Program
         string ControlType,
         int NativeWindowHandle,
         string AutomationId,
-        string ClassName)
+        string ClassName,
+        string Orientation,
+        RectangleReport Bounds)
     {
-        public static AncestorReport From(
-            AutomationElement.AutomationElementInformation information) =>
-            new(
+        public static AncestorReport From(AutomationElement element)
+        {
+            AutomationElement.AutomationElementInformation information = element.Current;
+            object orientationValue = element.GetCurrentPropertyValue(
+                AutomationElement.OrientationProperty,
+                ignoreDefaultValue: true);
+            string orientation = ReferenceEquals(
+                    orientationValue,
+                    AutomationElement.NotSupported)
+                ? "NotSupported"
+                : orientationValue.ToString() ?? "Unknown";
+            return new AncestorReport(
                 information.ControlType.ProgrammaticName,
                 information.NativeWindowHandle,
                 information.AutomationId,
-                information.ClassName);
+                information.ClassName,
+                orientation,
+                RectangleReport.From(information.BoundingRectangle));
+        }
     }
 
     private sealed record RectangleReport(
         double Left,
         double Top,
         double Right,
-        double Bottom)
+        double Bottom,
+        bool IsFinite)
     {
-        public static RectangleReport From(AutomationRect rectangle) => new(
-            rectangle.Left,
-            rectangle.Top,
-            rectangle.Right,
-            rectangle.Bottom);
+        public static RectangleReport From(AutomationRect rectangle)
+        {
+            bool isFinite = double.IsFinite(rectangle.Left) &&
+                            double.IsFinite(rectangle.Top) &&
+                            double.IsFinite(rectangle.Right) &&
+                            double.IsFinite(rectangle.Bottom);
+            return isFinite
+                ? new RectangleReport(
+                    rectangle.Left,
+                    rectangle.Top,
+                    rectangle.Right,
+                    rectangle.Bottom,
+                    IsFinite: true)
+                : new RectangleReport(0, 0, 0, 0, IsFinite: false);
+        }
 
         public bool Contains(ScreenPoint point) =>
+            IsFinite &&
             point.X >= Left &&
             point.X < Right &&
             point.Y >= Top &&

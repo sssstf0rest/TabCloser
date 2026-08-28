@@ -10,6 +10,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly NotifyIcon _notifyIcon;
     private readonly System.Windows.Forms.Timer _restoreTimer;
     private readonly ToolStripMenuItem _enabledItem;
+    private readonly ToolStripMenuItem _edgeItem;
     private readonly ToolStripMenuItem _startupItem;
 
     public TrayApplicationContext(SingleInstance singleInstance, bool startedWithWindows)
@@ -27,6 +28,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
         _enabledItem.CheckedChanged += OnEnabledChanged;
 
+        _edgeItem = new ToolStripMenuItem("Microsoft Edge top tabs (experimental)")
+        {
+            Checked = false,
+            CheckOnClick = true,
+        };
+        _edgeItem.CheckedChanged += OnEdgeSupportChanged;
+
         _startupItem = new ToolStripMenuItem("Start with Windows")
         {
             Checked = ReadStartupState(),
@@ -41,12 +49,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         exitItem.Click += (_, _) => ExitThread();
 
         ContextMenuStrip menu = new();
-        menu.Items.Add(new ToolStripMenuItem("Double-click a Chrome tab to close it")
+        menu.Items.Add(new ToolStripMenuItem("Double-click a supported top tab to close it")
         {
             Enabled = false,
         });
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_enabledItem);
+        menu.Items.Add(_edgeItem);
         menu.Items.Add(_startupItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(hideTrayIconItem);
@@ -133,6 +142,33 @@ internal sealed class TrayApplicationContext : ApplicationContext
             : "TabCloser (paused)";
     }
 
+    private void OnEdgeSupportChanged(object? sender, EventArgs eventArgs)
+    {
+        bool requestedState = _edgeItem.Checked;
+        if (requestedState)
+        {
+            DialogResult confirmation = MessageBox.Show(
+                "Edge can also close tabs on double-click in some regions and " +
+                "profiles. TabCloser cannot detect that per-profile setting.\n\n" +
+                "Before enabling Edge for this session, check every Edge profile " +
+                "you will use. If a profile shows 'Use double-click to close " +
+                "browser tabs' under Settings > Appearance, turn it off. If both " +
+                "features are enabled, two tabs might close.\n\n" +
+                "TabCloser supports only Edge's normal horizontal top tabs. " +
+                "Its experimental classifier is designed to ignore vertical tabs.",
+                "Enable experimental Edge support?",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Warning);
+            if (confirmation != DialogResult.OK)
+            {
+                SetEdgeItemCheckedWithoutEvent(checkedState: false);
+                return;
+            }
+        }
+
+        _service.SetEdgeEnabled(requestedState);
+    }
+
     private void OnStartupChanged(object? sender, EventArgs eventArgs)
     {
         try
@@ -169,6 +205,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             return false;
         }
+    }
+
+    private void SetEdgeItemCheckedWithoutEvent(bool checkedState)
+    {
+        _edgeItem.CheckedChanged -= OnEdgeSupportChanged;
+        _edgeItem.Checked = checkedState;
+        _edgeItem.CheckedChanged += OnEdgeSupportChanged;
     }
 
     private static bool ReadInitialTrayVisibility(bool startedWithWindows)

@@ -17,9 +17,11 @@ internal sealed class TabCloseService : IDisposable
     private readonly LowLevelMouseHook _hook;
     private readonly DesktopSwitchMonitor _desktopSwitchMonitor;
     private readonly Thread _worker;
+    private readonly DeferredRequestWorker<DeferredEdgeCloseRequest> _edgeWorker;
     private int _overflowed;
     private int _resetAssemblerRequested;
     private long _interactionGeneration;
+    private bool _edgeEnabled;
     private bool _enabled = true;
     private bool _started;
     private bool _disposed;
@@ -38,9 +40,14 @@ internal sealed class TabCloseService : IDisposable
         _worker = new Thread(WorkerMain)
         {
             IsBackground = true,
-            Name = "Chrome tab hit-test worker",
+            Name = "Browser tab hit-test worker",
         };
         _worker.SetApartmentState(ApartmentState.MTA);
+        _edgeWorker = new DeferredRequestWorker<DeferredEdgeCloseRequest>(
+            _cancellation.Token,
+            BrowserGesturePolicy.EdgeNativeCloseSettlingMilliseconds,
+            CreateEdgeRequestProcessor,
+            "Edge tab close settling worker");
     }
 
     public void Start()
@@ -51,9 +58,10 @@ internal sealed class TabCloseService : IDisposable
             return;
         }
 
-        _worker.Start();
         try
         {
+            _worker.Start();
+            _edgeWorker.Start();
             _desktopSwitchMonitor.Start();
             _hook.Start();
             _started = true;
@@ -64,7 +72,9 @@ internal sealed class TabCloseService : IDisposable
             _desktopSwitchMonitor.Dispose();
             _cancellation.Cancel();
             _mouseEvents.Writer.TryComplete();
-            _worker.Join(TimeSpan.FromSeconds(2));
+            _edgeWorker.Complete();
+            JoinIfStarted(_worker);
+            _edgeWorker.Join(TimeSpan.FromSeconds(2));
             throw;
         }
     }
@@ -101,10 +111,12 @@ internal sealed class TabCloseService : IDisposable
         _desktopSwitchMonitor.Dispose();
         _cancellation.Cancel();
         _mouseEvents.Writer.TryComplete();
+        _edgeWorker.Complete();
 
         if (_started)
         {
             _worker.Join(TimeSpan.FromSeconds(2));
+            _edgeWorker.Join(TimeSpan.FromSeconds(2));
         }
 
         _cancellation.Dispose();
@@ -114,7 +126,7 @@ internal sealed class TabCloseService : IDisposable
     {
         try
         {
-            ChromeTabHitTester hitTester = new();
+            BrowserTabHitTester hitTester = new(IsBrowserEnabled);
 
             while (_mouseEvents.Reader
                 .WaitToReadAsync(_cancellation.Token)
@@ -151,7 +163,7 @@ internal sealed class TabCloseService : IDisposable
 
     private void ProcessSafely(
         QueuedMouseEvent queuedEvent,
-        ChromeTabHitTester hitTester)
+        BrowserTabHitTester hitTester)
     {
         try
         {
@@ -165,7 +177,7 @@ internal sealed class TabCloseService : IDisposable
 
     private void Process(
         QueuedMouseEvent queuedEvent,
-        ChromeTabHitTester hitTester)
+        BrowserTabHitTester hitTester)
     {
         if (!IsEventCurrent(queuedEvent.InteractionGeneration))
         {
@@ -223,12 +235,60 @@ internal sealed class TabCloseService : IDisposable
             return;
         }
 
+        if (BrowserGesturePolicy.RequiresNativeCloseSettling(hit))
+        {
+            _edgeWorker.TryWrite(new DeferredEdgeCloseRequest(
+                hit,
+                click,
+                configuration,
+                queuedEvent.InteractionGeneration));
+            return;
+        }
+
+        TryFinalizeAndInject(
+            hit,
+            click,
+            configuration,
+            queuedEvent.InteractionGeneration,
+            hitTester);
+    }
+
+    private static void JoinIfStarted(Thread thread)
+    {
+        if ((thread.ThreadState & ThreadState.Unstarted) == 0)
+        {
+            thread.Join(TimeSpan.FromSeconds(2));
+        }
+    }
+
+    private Action<DeferredEdgeCloseRequest> CreateEdgeRequestProcessor()
+    {
+        BrowserTabHitTester hitTester = new(IsBrowserEnabled);
+        return request => TryFinalizeAndInject(
+            request.Target,
+            request.Click,
+            request.Configuration,
+            request.InteractionGeneration,
+            hitTester);
+    }
+
+    private void TryFinalizeAndInject(
+        TabTarget hit,
+        MouseClick click,
+        DoubleClickConfiguration configuration,
+        long interactionGeneration,
+        BrowserTabHitTester hitTester)
+    {
+        DoubleClickConfiguration injectionConfiguration =
+            BrowserGesturePolicy.GetInjectionConfiguration(hit, configuration);
+
         long processingAge = Environment.TickCount64 -
             click.UpMonotonicTimestampMilliseconds;
-        if (processingAge < 0 ||
-            processingAge > configuration.MaximumDelayMilliseconds ||
+        if (!BrowserGesturePolicy.IsPostReleaseAgeAllowed(
+                processingAge,
+                injectionConfiguration) ||
             !IsInteractionCurrent(
-                queuedEvent.InteractionGeneration,
+                interactionGeneration,
                 click.InputSequence,
                 click.PointerRevision) ||
             !NativeMethods.GetCursorPos(out NativeMethods.NativePoint nativePoint))
@@ -256,7 +316,7 @@ internal sealed class TabCloseService : IDisposable
         }
 
         if (!IsInteractionCurrent(
-                queuedEvent.InteractionGeneration,
+                interactionGeneration,
                 click.InputSequence,
                 click.PointerRevision))
         {
@@ -267,9 +327,9 @@ internal sealed class TabCloseService : IDisposable
             currentHit,
             currentPoint,
             click.UpMonotonicTimestampMilliseconds,
-            configuration,
+            injectionConfiguration,
             () => IsInteractionCurrent(
-                queuedEvent.InteractionGeneration,
+                interactionGeneration,
                 click.InputSequence,
                 click.PointerRevision));
     }
@@ -321,6 +381,24 @@ internal sealed class TabCloseService : IDisposable
         }
     }
 
+    private bool IsTargetEnabled(TabTarget target)
+    {
+        lock (_stateGate)
+        {
+            return _enabled &&
+                   BrowserGesturePolicy.IsTargetEnabled(target, _edgeEnabled);
+        }
+    }
+
+    private bool IsBrowserEnabled(BrowserKind browser)
+    {
+        lock (_stateGate)
+        {
+            return _enabled &&
+                   BrowserGesturePolicy.IsBrowserEnabled(browser, _edgeEnabled);
+        }
+    }
+
     private bool IsEventCurrent(long expectedInteractionGeneration)
     {
         if (Volatile.Read(ref _overflowed) != 0 ||
@@ -358,9 +436,21 @@ internal sealed class TabCloseService : IDisposable
         Interlocked.Exchange(ref _resetAssemblerRequested, 1);
     }
 
+    public void SetEdgeEnabled(bool enabled)
+    {
+        lock (_stateGate)
+        {
+            _edgeEnabled = enabled;
+            Interlocked.Increment(ref _interactionGeneration);
+            _detector.Reset();
+        }
+
+        Interlocked.Exchange(ref _resetAssemblerRequested, 1);
+    }
+
     private void CaptureDownTarget(
         QueuedMouseEvent queuedEvent,
-        ChromeTabHitTester hitTester)
+        BrowserTabHitTester hitTester)
     {
         ClearPendingDownTarget();
         MouseButtonEvent mouseEvent = queuedEvent.MouseEvent;
@@ -378,6 +468,7 @@ internal sealed class TabCloseService : IDisposable
 
         TabTarget? target = hitTester.HitTest(mouseEvent.Point);
         if (target is null ||
+            !IsTargetEnabled(target) ||
             target.RootWindow != mouseEvent.RootWindow ||
             !IsLeftPressCurrent(
                 queuedEvent.InteractionGeneration,
@@ -455,7 +546,7 @@ internal sealed class TabCloseService : IDisposable
     }
 
     private static TabTarget? HitTestCompleteClick(
-        ChromeTabHitTester hitTester,
+        BrowserTabHitTester hitTester,
         MouseClick click,
         TabTarget? downTarget)
     {
@@ -481,6 +572,12 @@ internal sealed class TabCloseService : IDisposable
             ? upTarget
             : null;
     }
+
+    private readonly record struct DeferredEdgeCloseRequest(
+        TabTarget Target,
+        MouseClick Click,
+        DoubleClickConfiguration Configuration,
+        long InteractionGeneration);
 
     private readonly record struct QueuedMouseEvent(
         MouseButtonEvent MouseEvent,

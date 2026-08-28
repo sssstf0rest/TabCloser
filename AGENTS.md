@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 
 - `src/TabCloser.Core/` contains platform-neutral click assembly and double-click detection logic.
-- `src/TabCloser.Windows/` contains the WinForms tray app, Windows hooks, Chrome UI Automation hit-testing, and native input injection. Keep platform-specific code here.
+- `src/TabCloser.Windows/` contains the WinForms tray app, Windows hooks, Chrome and Edge UI Automation hit-testing, and native input injection. Keep platform-specific code here.
 - `tests/TabCloser.Core.Tests/` and `tests/TabCloser.Windows.Tests/` are self-contained console test runners.
 - `tools/TabCloser.Diagnostics/` provides live, privacy-conscious UI Automation diagnostics.
 - `icons/` holds the packaged icon; editable artwork and review renders live in `dev-kit/`. `test-fixtures/` contains manual browser fixtures, and `artifacts/` contains published output.
@@ -19,7 +19,7 @@ dotnet run --project tests/TabCloser.Windows.Tests -c Release
 dotnet publish src/TabCloser.Windows/TabCloser.Windows.csproj -p:PublishProfile=win-x64 -o artifacts/win-x64
 ```
 
-The build treats warnings as errors. The test commands run the core and Windows-specific suites. Publishing creates the self-contained Windows executable. Use the diagnostics commands documented in `README.md` when investigating Chrome hit-testing.
+The build treats warnings as errors. The test commands run the core and Windows-specific suites. Publishing creates the self-contained Windows executable. Use the diagnostics commands documented in `README.md` when investigating browser hit-testing.
 
 ## Coding Style & Naming Conventions
 

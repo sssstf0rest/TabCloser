@@ -1,6 +1,6 @@
 # Windows Manual Acceptance Tests
 
-Run these checks on a supported x64 Windows system with current stable Google Chrome. Use the published `TabCloser.exe`, not a debugger-hosted build.
+Run these checks on a supported x64 Windows system with current stable Google Chrome and Microsoft Edge. Use the published `TabCloser.exe`, not a debugger-hosted build.
 
 ## Recorded Results — 2026-08-25 through 2026-08-26
 
@@ -33,7 +33,11 @@ Environment: Windows 11 Pro 25H2 build `10.0.26200.9168`, Chrome Stable `151.0.7
 | Published lifecycle | One GUI executable launched standalone, blocked a second instance, exposed all tray items, paused/re-enabled, created and removed the exact startup value, made no observed TCP/UDP endpoints, and exited through the tray. |
 | Packaging | PE32+ x64 Windows GUI; embedded `asInvoker`, `uiAccess="false"`, Per-Monitor V2, and a custom multi-resolution executable/tray icon; unsigned. Fresh size/hash are recorded in `findings.md`. |
 
-The intended physical close gesture and all available control, input, race, reflow, process/window-boundary, pause/timing, lock/UAC, privilege, startup, and single-monitor scaling checks pass. The original `96` DPI/100% baseline is restored. The two unavailable environments above are explicitly unclaimed rather than treated as failures.
+The recorded Chrome physical close gesture and all available Chrome control, input, race, reflow, process/window-boundary, pause/timing, lock/UAC, privilege, startup, and single-monitor scaling checks pass. The original `96` DPI/100% baseline is restored. The two unavailable environments above are explicitly unclaimed rather than treated as failures.
+
+## Edge Implementation Evidence — 2026-08-28
+
+The Release build and automated browser-policy tests pass. Edge Stable `151.0.4129.107` exposed one horizontal native tab as `EdgeTab` under the outer `EdgeTabStripRegionView`; that outer region was wide, shallow, and inside the 96-DIP top band. UIA orientation was unavailable, so the implementation requires both this exact outer class and the measured top-strip geometry. The Edge window was not foreground during the probe, so physical closing and expanded, collapsed, and hover-expanded vertical layouts remain unverified and must not be claimed as accepted.
 
 ## Startup and Tray
 
@@ -50,6 +54,9 @@ The intended physical close gesture and all available control, input, race, refl
 ## Intended Gesture
 
 - In normal, maximized, and restored Chrome windows, double-left-click the center of active and inactive tabs; only that tab should close.
+- In every Edge profile to be tested, disable **Use double-click to close browser tabs** under **Settings > Appearance** if that option is present. Then enable **Microsoft Edge top tabs (experimental)** in TabCloser for the current session.
+- In normal, maximized, and restored Edge windows using horizontal top tabs, repeat the active, inactive, pinned, grouped, and narrow-tab checks; only the intended tab should close.
+- Switch Edge between horizontal and vertical tabs while TabCloser remains running. Horizontal support should recover immediately after switching back.
 - Repeat at 100%, 150%, and 200% display scaling where available.
 - Change Windows' double-click speed and confirm the helper follows the new setting.
 
@@ -58,15 +65,20 @@ The intended physical close gesture and all available control, input, race, refl
 - Single clicks; slow pairs; right/middle clicks; Ctrl/Shift/Alt/Windows-modified clicks.
 - Drags, including moving away and returning before release.
 - Chrome tab close buttons, New Tab, blank strip/title-bar space, toolbar, bookmarks, page content, downloads bubble, and window controls.
-- Tabs or tab-like controls in another browser or application.
+- Edge vertical tabs in expanded, collapsed, and hover-expanded states, especially the first tab near the top of the window.
+- Edge sidebar controls, tab close buttons, New Tab, blank strip/title-bar space, toolbar, page content, and DevTools tabs.
+- Tabs or tab-like controls in an unsupported browser or application.
 - A webpage fixture containing `role="tablist"` and `role="tab"`, including a linked ARIA tab near the top of the page.
 - A click pair split across two tabs or two Chrome windows.
+- A click pair split between Chrome and Edge, between two Edge windows, or between horizontal and vertical Edge layouts.
 
 ## Race and Failure Checks
 
 - Move the pointer into page content immediately after the second release; no middle click should land there.
-- Rapidly click while switching windows; the helper must never act outside the validated foreground Chrome window.
+- Rapidly click while switching windows; the helper must never act outside the validated foreground supported-browser window.
 - Run Chrome as administrator while the helper is unelevated; the helper should do nothing and remain responsive.
+- Repeat the privilege-boundary check with Edge.
+- Restart TabCloser and confirm Edge support is off again. Re-enabling it must show the per-profile collision warning each session.
 - Lock the workstation or show a UAC secure-desktop prompt, then return; ordinary clicks must continue working and the helper must not replay stale input.
 - Pause, overflow the input queue, or switch desktops between the two clicks; no stale pair may complete after re-enabling or returning.
 - Press New Tab or a tab close button and hold briefly; any tab-strip reflow after release must not become a valid historical down target.
