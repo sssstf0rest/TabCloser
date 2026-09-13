@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Automation;
 using TabCloser.Core;
+using TabCloser.Windows.Diagnostics;
 using TabCloser.Windows.Interop;
 using AutomationPoint = System.Windows.Point;
 using AutomationRect = System.Windows.Rect;
@@ -15,12 +16,14 @@ internal sealed class ChromeTabHitTester
 {
     private const int MaximumAncestorDepth = 32;
     private const int TopChromeHeightDip = 96;
+    private readonly RuntimeDiagnostics? _diagnostics;
     private readonly PropertyCondition _buttonCondition = new(
         AutomationElement.ControlTypeProperty,
         ControlType.Button);
 
-    public ChromeTabHitTester()
+    public ChromeTabHitTester(RuntimeDiagnostics? diagnostics = null)
     {
+        _diagnostics = diagnostics;
         try
         {
             _ = AutomationElement.RootElement.Current.ControlType;
@@ -36,6 +39,27 @@ internal sealed class ChromeTabHitTester
 
     public TabTarget? HitTest(ScreenPoint point)
     {
+        _diagnostics?.Count(DiagnosticCounter.HitTests);
+        _diagnostics?.Stage("HitTest.RootValidation");
+        try
+        {
+            TabTarget? target = HitTestCore(point);
+            if (target is not null)
+            {
+                _diagnostics?.Count(DiagnosticCounter.HitTestsAccepted);
+            }
+
+            return target;
+        }
+        finally
+        {
+            _diagnostics?.Count(DiagnosticCounter.HitTestsCompleted);
+            _diagnostics?.Stage("Processing");
+        }
+    }
+
+    private TabTarget? HitTestCore(ScreenPoint point)
+    {
         try
         {
             nint rootWindow = GetChromeRootWindow(point, out uint processId);
@@ -44,6 +68,7 @@ internal sealed class ChromeTabHitTester
                 return null;
             }
 
+            _diagnostics?.Stage("HitTest.UIA");
             AutomationElement leaf = AutomationElement.FromPoint(
                 new AutomationPoint(point.X, point.Y));
             AutomationElement? tab = FindTabAncestor(leaf);
@@ -94,6 +119,8 @@ internal sealed class ChromeTabHitTester
             ArgumentException or
             Win32Exception)
         {
+            _diagnostics?.Count(DiagnosticCounter.HitTestErrors);
+            _diagnostics?.Error("HitTest", exception);
             return null;
         }
     }

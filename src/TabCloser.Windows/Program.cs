@@ -1,3 +1,5 @@
+using TabCloser.Windows.Diagnostics;
+
 namespace TabCloser.Windows;
 
 internal static class Program
@@ -9,6 +11,8 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
+        bool diagnosticsRequested = args.Contains("--diagnostics", StringComparer.Ordinal);
+
         using SingleInstance instance = new("Local\\TabCloser.Windows");
         bool startedWithWindows = StartupRegistration.IsStartupLaunch(args);
         LaunchAction launchAction = LaunchPolicy.Decide(
@@ -17,6 +21,16 @@ internal static class Program
         if (launchAction == LaunchAction.RequestTrayIconRestore)
         {
             instance.RequestTrayIconRestore();
+            if (diagnosticsRequested)
+            {
+                MessageBox.Show(
+                    "TabCloser is already running. Choose Exit from its tray menu, " +
+                    "then launch the diagnostic build again. Logging has not started.",
+                    "TabCloser diagnostics",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+
             return;
         }
 
@@ -27,9 +41,14 @@ internal static class Program
 
         try
         {
+            RuntimeDiagnostics? diagnostics = diagnosticsRequested ? new() : null;
+            using DiagnosticRecorder? recorder = diagnostics is null
+                ? null
+                : new DiagnosticRecorder(diagnostics);
             using TrayApplicationContext context = new(
                 instance,
-                launchAction == LaunchAction.RunUsingSavedVisibility);
+                launchAction == LaunchAction.RunUsingSavedVisibility,
+                diagnostics);
             Application.Run(context);
         }
         catch (Exception exception)
