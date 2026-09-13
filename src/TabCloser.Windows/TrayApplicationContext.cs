@@ -1,4 +1,5 @@
 using TabCloser.Windows.Input;
+using TabCloser.Windows.Diagnostics;
 
 namespace TabCloser.Windows;
 
@@ -11,13 +12,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly System.Windows.Forms.Timer _restoreTimer;
     private readonly ToolStripMenuItem _enabledItem;
     private readonly ToolStripMenuItem _startupItem;
+    private readonly RuntimeDiagnostics? _diagnostics;
+    private bool _exiting;
+    private bool _automaticRecoveryInProgress;
 
-    public TrayApplicationContext(SingleInstance singleInstance, bool startedWithWindows)
+    public TrayApplicationContext(
+        SingleInstance singleInstance,
+        bool startedWithWindows,
+        RuntimeDiagnostics? diagnostics = null)
     {
+        _diagnostics = diagnostics;
         _singleInstance = singleInstance;
         _applicationIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath)
             ?? (Icon)SystemIcons.Application.Clone();
-        _service = new TabCloseService();
+        _service = new TabCloseService(diagnostics);
         _service.Start();
 
         _enabledItem = new ToolStripMenuItem("Enabled")
@@ -48,6 +56,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_enabledItem);
         menu.Items.Add(_startupItem);
+        if (diagnostics is not null)
+        {
+            menu.Items.Add(new ToolStripMenuItem("Diagnostic session v4 (auto recovery)")
+            {
+                Enabled = false,
+            });
+            ToolStripMenuItem restartWorkerItem = new("Restart worker (diagnostic)");
+            restartWorkerItem.Click += OnRestartWorker;
+            menu.Items.Add(restartWorkerItem);
+        }
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(hideTrayIconItem);
         menu.Items.Add(exitItem);
@@ -70,6 +88,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     protected override void ExitThreadCore()
     {
+        _exiting = true;
         _restoreTimer.Stop();
         _restoreTimer.Tick -= OnRestoreTimerTick;
         _restoreTimer.Dispose();
@@ -79,6 +98,51 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _applicationIcon.Dispose();
         _service.Dispose();
         base.ExitThreadCore();
+    }
+
+    private async void OnRestartWorker(object? sender, EventArgs eventArgs)
+    {
+        if (sender is not ToolStripMenuItem item || _exiting)
+        {
+            return;
+        }
+
+        item.Enabled = false;
+        try
+        {
+            WorkerRestartResult result = await _service.RestartWorkerForDiagnosticsAsync();
+            if (_exiting)
+            {
+                return;
+            }
+
+            string message = result == WorkerRestartResult.Restarted
+                ? "A replacement worker thread was started in the same TabCloser process. " +
+                  "The mouse hook was not restarted.\n\nWait 10 seconds, then try two fresh " +
+                  "double-clicks on disposable Chrome tabs. This does not confirm recovery yet."
+                : $"Worker restart result: {result}.\n\nIf the restart timed out or failed, " +
+                  "tab closing remains suspended. No second worker was intentionally started " +
+                  "alongside the old one. Keep the app running and report this result.";
+            MessageBox.Show(message, "TabCloser diagnostic worker test",
+                MessageBoxButtons.OK, result == WorkerRestartResult.Restarted
+                    ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+        }
+        catch (Exception exception)
+        {
+            _diagnostics?.Error("RestartWorkerMenu", exception);
+            if (!_exiting)
+            {
+                MessageBox.Show("The diagnostic action failed. Keep the app running and report this result.",
+                    "TabCloser diagnostics", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+        finally
+        {
+            if (!_exiting)
+            {
+                item.Enabled = true;
+            }
+        }
     }
 
     private void OnHideTrayIcon(object? sender, EventArgs eventArgs)
@@ -116,12 +180,39 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private void OnRestoreTimerTick(object? sender, EventArgs eventArgs)
+    private async void OnRestoreTimerTick(object? sender, EventArgs eventArgs)
     {
+        _diagnostics?.UiPulse();
         if (_singleInstance.ConsumeTrayIconRestoreRequest())
         {
             _notifyIcon.Visible = true;
             TryClearHiddenState(showWarning: true);
+        }
+
+        if (_exiting || _automaticRecoveryInProgress)
+        {
+            return;
+        }
+
+        _automaticRecoveryInProgress = true;
+        try
+        {
+            WorkerRestartResult? result = await _service.RecoverWorkerIfRequestedAsync();
+            if (!_exiting && result is WorkerRestartResult.TimedOut or WorkerRestartResult.Failed)
+            {
+                _notifyIcon.Text = "TabCloser (recovery stopped)";
+                _notifyIcon.ShowBalloonTip(5000, "TabCloser recovery stopped",
+                    "The worker could not be restarted safely. Exit and relaunch TabCloser to resume.",
+                    ToolTipIcon.Warning);
+            }
+        }
+        catch (Exception exception)
+        {
+            _diagnostics?.Error("AutomaticRecovery", exception);
+        }
+        finally
+        {
+            _automaticRecoveryInProgress = false;
         }
     }
 

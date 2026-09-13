@@ -132,6 +132,36 @@ internal static class NativeMethods
         [In] NativeInput[] inputs,
         int inputSize);
 
+    [DllImport("kernel32.dll")]
+    internal static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern nint GetThreadDesktop(uint threadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern nint GetProcessWindowStation();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern nint OpenInputDesktop(
+        uint flags,
+        [MarshalAs(UnmanagedType.Bool)] bool inherit,
+        uint desiredAccess);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool CloseDesktop(nint desktop);
+
+    [DllImport("user32.dll", EntryPoint = "GetUserObjectInformationW",
+        CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetUserObjectName(
+        nint handle, int index, StringBuilder value, uint byteLength, out uint needed);
+
+    [DllImport("user32.dll", EntryPoint = "GetUserObjectInformationW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetUserObjectInputFlag(
+        nint handle, int index, out int value, uint byteLength, out uint needed);
+
     internal static bool IsKeyDown(int virtualKey) =>
         (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
 
