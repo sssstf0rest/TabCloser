@@ -1,3 +1,5 @@
 **/bin/
 **/obj/
-
+/artifacts/diagnostics-win-x64/
+/artifacts/diagnostics-v2-win-x64/
+/artifacts/diagnostics-v3-win-x64/

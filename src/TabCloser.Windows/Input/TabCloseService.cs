@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using TabCloser.Core;
 using TabCloser.Windows.Browser;
+using TabCloser.Windows.Diagnostics;
 using TabCloser.Windows.Interop;
 
 namespace TabCloser.Windows.Input;
@@ -8,15 +9,16 @@ namespace TabCloser.Windows.Input;
 internal sealed class TabCloseService : IDisposable
 {
     private readonly object _stateGate = new();
+    private readonly RuntimeDiagnostics? _diagnostics;
     private readonly Channel<QueuedMouseEvent> _mouseEvents;
-    private readonly CancellationTokenSource _cancellation = new();
     private readonly DoubleClickDetector _detector = new();
     private readonly MouseClickAssembler _assembler = new();
     private TabTarget? _pendingDownTarget;
     private long _pendingDownInputSequence;
     private readonly LowLevelMouseHook _hook;
     private readonly DesktopSwitchMonitor _desktopSwitchMonitor;
-    private readonly Thread _worker;
+    private readonly TabCloseWorker _worker;
+    private readonly InputRecoveryPolicy _recoveryPolicy = new();
     private int _overflowed;
     private int _resetAssemblerRequested;
     private long _interactionGeneration;
@@ -24,8 +26,9 @@ internal sealed class TabCloseService : IDisposable
     private bool _started;
     private bool _disposed;
 
-    public TabCloseService()
+    public TabCloseService(RuntimeDiagnostics? diagnostics = null)
     {
+        _diagnostics = diagnostics;
         _mouseEvents = Channel.CreateBounded<QueuedMouseEvent>(
             new BoundedChannelOptions(capacity: 32)
             {
@@ -33,14 +36,14 @@ internal sealed class TabCloseService : IDisposable
                 SingleReader = true,
                 SingleWriter = false,
             });
-        _hook = new LowLevelMouseHook(QueueMouseEvent);
-        _desktopSwitchMonitor = new DesktopSwitchMonitor(InvalidateInteraction);
-        _worker = new Thread(WorkerMain)
+        _hook = new LowLevelMouseHook(QueueMouseEvent, diagnostics);
+        _desktopSwitchMonitor = new DesktopSwitchMonitor(() =>
         {
-            IsBackground = true,
-            Name = "Chrome tab hit-test worker",
-        };
-        _worker.SetApartmentState(ApartmentState.MTA);
+            _diagnostics?.Count(DiagnosticCounter.DesktopSwitches);
+            InvalidateInteraction();
+        });
+        _worker = new TabCloseWorker(WorkerMain, InvalidateInteraction,
+            ResetAfterWorkerStop, diagnostics);
     }
 
     public void Start()
@@ -62,23 +65,43 @@ internal sealed class TabCloseService : IDisposable
         {
             _hook.Dispose();
             _desktopSwitchMonitor.Dispose();
-            _cancellation.Cancel();
             _mouseEvents.Writer.TryComplete();
-            _worker.Join(TimeSpan.FromSeconds(2));
+            _worker.Dispose();
             throw;
         }
     }
 
     public void SetEnabled(bool enabled)
     {
+        _diagnostics?.SetEnabled(enabled);
         lock (_stateGate)
         {
             _enabled = enabled;
             Interlocked.Increment(ref _interactionGeneration);
             _detector.Reset();
+            _recoveryPolicy.ClearEvidence();
         }
 
         Interlocked.Exchange(ref _resetAssemblerRequested, 1);
+    }
+
+    internal Task<WorkerRestartResult> RestartWorkerForDiagnosticsAsync() =>
+        _worker.RestartForDiagnosticsAsync();
+
+    // Called by the tray timer, never by the sending worker: a worker must not
+    // wait for its own termination. No timer or retry is scheduled after failure.
+    internal async Task<WorkerRestartResult?> RecoverWorkerIfRequestedAsync()
+    {
+        lock (_stateGate)
+        {
+            if (_disposed || !_started || !_enabled ||
+                !_recoveryPolicy.TryTakeRequest(Environment.TickCount64))
+            {
+                return null;
+            }
+        }
+
+        return await _worker.RestartAutomaticallyAsync();
     }
 
     public void Dispose()
@@ -99,25 +122,21 @@ internal sealed class TabCloseService : IDisposable
         Interlocked.Exchange(ref _resetAssemblerRequested, 1);
         _hook.Dispose();
         _desktopSwitchMonitor.Dispose();
-        _cancellation.Cancel();
         _mouseEvents.Writer.TryComplete();
-
-        if (_started)
-        {
-            _worker.Join(TimeSpan.FromSeconds(2));
-        }
-
-        _cancellation.Dispose();
+        _worker.Dispose();
     }
 
-    private void WorkerMain()
+    private void WorkerMain(CancellationToken cancellation)
     {
         try
         {
-            ChromeTabHitTester hitTester = new();
+            _diagnostics?.Stage("UIA.Initializing");
+            ChromeTabHitTester hitTester = new(_diagnostics);
+            _diagnostics?.CaptureWorkerInitialDesktop();
+            _diagnostics?.Stage("Idle");
 
-            while (_mouseEvents.Reader
-                .WaitToReadAsync(_cancellation.Token)
+            while (!cancellation.IsCancellationRequested && _mouseEvents.Reader
+                .WaitToReadAsync(cancellation)
                 .AsTask()
                 .GetAwaiter()
                 .GetResult())
@@ -129,6 +148,7 @@ internal sealed class TabCloseService : IDisposable
 
                 while (_mouseEvents.Reader.TryRead(out QueuedMouseEvent queuedEvent))
                 {
+                    cancellation.ThrowIfCancellationRequested();
                     if (FlushAfterOverflow())
                     {
                         break;
@@ -141,10 +161,14 @@ internal sealed class TabCloseService : IDisposable
         }
         catch (OperationCanceledException)
         {
-            // Normal application shutdown.
+            _diagnostics?.Stage("Stopped");
+            // Application shutdown or a manual diagnostic worker restart.
         }
-        catch
+        catch (Exception exception)
         {
+            _diagnostics?.Count(DiagnosticCounter.WorkerFailures);
+            _diagnostics?.Error("Worker", exception);
+            _diagnostics?.Stage("Faulted");
             // Fail closed if the accessibility worker cannot continue.
         }
     }
@@ -153,13 +177,22 @@ internal sealed class TabCloseService : IDisposable
         QueuedMouseEvent queuedEvent,
         ChromeTabHitTester hitTester)
     {
+        _diagnostics?.Count(DiagnosticCounter.ProcessStarted);
+        _diagnostics?.Stage("Processing");
         try
         {
             Process(queuedEvent, hitTester);
         }
-        catch
+        catch (Exception exception)
         {
+            _diagnostics?.Count(DiagnosticCounter.ProcessErrors);
+            _diagnostics?.Error("Process", exception);
             ResetAllGestureState();
+        }
+        finally
+        {
+            _diagnostics?.Count(DiagnosticCounter.ProcessCompleted);
+            _diagnostics?.Stage("Idle");
         }
     }
 
@@ -223,6 +256,8 @@ internal sealed class TabCloseService : IDisposable
             return;
         }
 
+        _diagnostics?.Count(DiagnosticCounter.DoubleClicksRecognized);
+
         long processingAge = Environment.TickCount64 -
             click.UpMonotonicTimestampMilliseconds;
         if (processingAge < 0 ||
@@ -263,7 +298,9 @@ internal sealed class TabCloseService : IDisposable
             return;
         }
 
-        MiddleClickInjector.TryClick(
+        _diagnostics?.Count(DiagnosticCounter.CloseAttempts);
+        _diagnostics?.Stage("Injecting");
+        bool closed = MiddleClickInjector.TryClick(
             currentHit,
             currentPoint,
             click.UpMonotonicTimestampMilliseconds,
@@ -271,20 +308,36 @@ internal sealed class TabCloseService : IDisposable
             () => IsInteractionCurrent(
                 queuedEvent.InteractionGeneration,
                 click.InputSequence,
-                click.PointerRevision));
+                click.PointerRevision),
+            _diagnostics,
+            outcome => ObserveSendResult(outcome, queuedEvent.InteractionGeneration));
+        if (closed)
+        {
+            _diagnostics?.Count(DiagnosticCounter.CloseBatchesInserted);
+        }
     }
 
     private void QueueMouseEvent(MouseButtonEvent mouseEvent)
     {
         long interactionGeneration = Interlocked.Read(ref _interactionGeneration);
+        if (_worker.IsSuspended)
+        {
+            return;
+        }
+
         if (!_mouseEvents.Writer.TryWrite(new QueuedMouseEvent(
                 mouseEvent,
                 interactionGeneration)))
         {
+            _diagnostics?.Count(DiagnosticCounter.QueueOverflows);
             if (Interlocked.Exchange(ref _overflowed, 1) == 0)
             {
                 InvalidateInteraction();
             }
+        }
+        else
+        {
+            _diagnostics?.Count(DiagnosticCounter.QueuedEvents);
         }
     }
 
@@ -323,14 +376,14 @@ internal sealed class TabCloseService : IDisposable
 
     private bool IsEventCurrent(long expectedInteractionGeneration)
     {
-        if (Volatile.Read(ref _overflowed) != 0 ||
+        if (_worker.IsSuspended || Volatile.Read(ref _overflowed) != 0 ||
             Interlocked.Read(ref _interactionGeneration) != expectedInteractionGeneration ||
             !ReadEnabled())
         {
             return false;
         }
 
-        return Volatile.Read(ref _overflowed) == 0 &&
+        return !_worker.IsSuspended && Volatile.Read(ref _overflowed) == 0 &&
                Interlocked.Read(ref _interactionGeneration) ==
                expectedInteractionGeneration;
     }
@@ -356,6 +409,36 @@ internal sealed class TabCloseService : IDisposable
     {
         Interlocked.Increment(ref _interactionGeneration);
         Interlocked.Exchange(ref _resetAssemblerRequested, 1);
+        _recoveryPolicy.ClearEvidence();
+    }
+
+    private void ObserveSendResult(InputSendOutcome outcome, long generation)
+    {
+        lock (_stateGate)
+        {
+            if (_enabled && !_disposed && generation == Interlocked.Read(ref _interactionGeneration))
+            {
+                _recoveryPolicy.Observe(outcome, Environment.TickCount64);
+            }
+            else
+            {
+                _recoveryPolicy.ClearEvidence();
+            }
+        }
+    }
+
+    private void ResetAfterWorkerStop()
+    {
+        // Called only after Join, with input suspended. Never replay a queued
+        // gesture or carry a half-click across worker generations.
+        while (_mouseEvents.Reader.TryRead(out _))
+        {
+        }
+
+        Interlocked.Exchange(ref _overflowed, 0);
+        Interlocked.Exchange(ref _resetAssemblerRequested, 0);
+        ResetAllGestureState();
+        InvalidateInteraction();
     }
 
     private void CaptureDownTarget(

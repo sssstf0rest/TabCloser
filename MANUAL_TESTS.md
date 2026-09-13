@@ -47,6 +47,45 @@ The intended physical close gesture and all available control, input, race, refl
 - Disable **Start with Windows** and confirm the startup entry is removed.
 - Choose **Exit** and confirm the process ends.
 
+## Automatic Input-Denial Recovery (v4; live acceptance pending)
+
+- Build/test verification: 19 Core and 32 Windows cases pass, including automatic
+  recovery without diagnostics, error filtering, cooldown, single consumption,
+  timeout/disposal races, and no queued-click replay. These are not live game tests.
+- Launch the rebuilt normal executable with `--diagnostics` and confirm the v4
+  auto-recovery label. Repeat the Perfect World/CS2 exit reproduction without
+  selecting Restart worker. Two denied attempts within 10 seconds should trigger
+  one automatic worker replacement; after waiting 3 seconds, fresh gestures
+  should close tabs. Keep Perfect World running throughout.
+- Verify the same process and one installed hook, with AutomaticRestartRequested,
+  old-generation Stopped, new-generation Started, and subsequent successful sends.
+- Repeat without `--diagnostics`; recovery must work with no diagnostic log/menu.
+- An isolated denial, partial send, or different error must not trigger recovery.
+  Persistent denial must not produce repeated restarts, even after 60 seconds or
+  Enabled toggling. Successful sends rearm recovery but do not bypass cooldown.
+- Recheck paused state, stale half-click rejection, hidden-tray operation, normal
+  Chrome targeting, and exit during recovery. No automatic retry may close the
+  previously failed tab after the pointer has moved.
+
+## Diagnostic Worker Restart (v3 historical result)
+
+The user confirmed manual recovery on 2026-09-13 while Perfect World stayed
+running. The log verified worker replacement in the same process with the hook
+unchanged; see `tools/DIAGNOSTICS.md`. The additional safety cases below remain
+manual regression checks, not claims of completed live testing.
+
+- With `--diagnostics`, confirm **Diagnostic session v3** and **Restart worker
+  (diagnostic)** appear. Neither item should appear in a normal launch.
+- Follow `tools/DIAGNOSTICS.md`: record baseline and post-CS2-exit failures, invoke
+  the worker restart once, then record two fresh attempts without restarting the app.
+- Confirm the same process/log survives, HookInstalled remains one, and lifecycle
+  records show the old worker stopped before the next generation started.
+- Confirm a single click or a gesture split across restart never closes a tab.
+  If Enabled was off before restart, it must remain off afterward.
+- The tray should remain responsive during restart. A timeout/failure must not
+  create overlapping workers or replay queued gestures. Exiting during restart
+  must end the app without a replacement being started after disposal.
+
 ## Intended Gesture
 
 - In normal, maximized, and restored Chrome windows, double-left-click the center of active and inactive tabs; only that tab should close.

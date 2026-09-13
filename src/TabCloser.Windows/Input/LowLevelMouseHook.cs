@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using TabCloser.Core;
+using TabCloser.Windows.Diagnostics;
 using TabCloser.Windows.Interop;
 
 namespace TabCloser.Windows.Input;
@@ -9,6 +10,7 @@ internal sealed class LowLevelMouseHook : IDisposable
 {
     private readonly Action<MouseButtonEvent> _onMouseButtonEvent;
     private readonly NativeMethods.HookProcedure _callback;
+    private readonly RuntimeDiagnostics? _diagnostics;
     private nint _hook;
     private bool _trackingLeftButton;
     private ScreenPoint _leftDownPoint;
@@ -20,8 +22,11 @@ internal sealed class LowLevelMouseHook : IDisposable
     private bool _hasLastPointerPoint;
     private ScreenPoint _lastPointerPoint;
 
-    public LowLevelMouseHook(Action<MouseButtonEvent> onMouseButtonEvent)
+    public LowLevelMouseHook(
+        Action<MouseButtonEvent> onMouseButtonEvent,
+        RuntimeDiagnostics? diagnostics = null)
     {
+        _diagnostics = diagnostics;
         _onMouseButtonEvent = onMouseButtonEvent;
         _callback = HandleHook;
     }
@@ -44,6 +49,8 @@ internal sealed class LowLevelMouseHook : IDisposable
         {
             throw new Win32Exception(Marshal.GetLastWin32Error());
         }
+
+        _diagnostics?.Count(DiagnosticCounter.HookInstalled);
     }
 
     public long CurrentInputSequence => Interlocked.Read(ref _inputSequence);
@@ -71,6 +78,25 @@ internal sealed class LowLevelMouseHook : IDisposable
 
     private nint HandleHook(int code, nint wParam, nint lParam)
     {
+        if (_diagnostics is null)
+        {
+            return HandleHookCore(code, wParam, lParam);
+        }
+
+        long startedAt = Environment.TickCount64;
+        _diagnostics.HookEntered();
+        try
+        {
+            return HandleHookCore(code, wParam, lParam);
+        }
+        finally
+        {
+            _diagnostics.HookReturned(startedAt);
+        }
+    }
+
+    private nint HandleHookCore(int code, nint wParam, nint lParam)
+    {
         if (code >= 0)
         {
             try
@@ -96,6 +122,9 @@ internal sealed class LowLevelMouseHook : IDisposable
                     (data.Flags & (NativeMethods.LowLevelMouseInjected |
                                    NativeMethods.LowLevelMouseLowerIntegrityInjected)) != 0 ||
                     data.ExtraInfo == NativeMethods.InjectionMarker;
+                _diagnostics?.Count(injected
+                    ? DiagnosticCounter.InjectedButtonEvents
+                    : DiagnosticCounter.PhysicalButtonEvents);
                 long inputSequence = Interlocked.Increment(ref _inputSequence);
 
                 if (kind == MouseButtonEventKind.LeftDown)
@@ -131,8 +160,10 @@ internal sealed class LowLevelMouseHook : IDisposable
                     _trackingLeftButton = false;
                 }
             }
-            catch
+            catch (Exception exception)
             {
+                _diagnostics?.Count(DiagnosticCounter.HookErrors);
+                _diagnostics?.Error("Hook", exception);
                 // A global hook must never disrupt the user's normal input path.
             }
         }
